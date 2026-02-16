@@ -1,65 +1,118 @@
--- Load Linoria Library
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+-- ============================================================================
+-- AUTO SKILLS SCRIPT - A ONE PIECE GAME
+-- ============================================================================
+-- Author: EvenOnFN
+-- UI Library: Rayfield (Modern & Clean)
+-- Features: Auto Skills, Auto TP Farm, Auto M1, Smart Shops, Fire Dragon Auto
+-- ============================================================================
 
--- Services
+-- ============================================================================
+-- SECTION 1: RAYFIELD UI LIBRARY SETUP
+-- ============================================================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- ============================================================================
+-- SECTION 2: SERVICES & VARIABLES
+-- ============================================================================
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local player = Players.LocalPlayer
 
--- Anti-AFK Setup
-local VirtualUser = game:GetService("VirtualUser")
+-- ============================================================================
+-- SECTION 3: ANTI-AFK SYSTEM
+-- ============================================================================
+
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Create Window
-local Window = Library:CreateWindow({
-    Title = 'Auto Skills',
-    Center = true,
-    AutoShow = true,
-    TabPadding = 8,
-    MenuFadeTime = 0.2
+-- ============================================================================
+-- SECTION 4: RAYFIELD WINDOW SETUP
+-- ============================================================================
+
+local Window = Rayfield:CreateWindow({
+   Name = "Auto Skills | A One Piece Game",
+   LoadingTitle = "Loading Auto Skills...",
+   LoadingSubtitle = "by EvenOnFN",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "AOPGAutoSkills",
+      FileName = "Config"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false,
+   KeySettings = {
+      Title = "Auto Skills",
+      Subtitle = "Key System",
+      Note = "No Key Required",
+      FileName = "Key",
+      SaveKey = false,
+      GrabKeyFromSite = false,
+      Key = {""}
+   }
 })
 
--- Create Tab
-local Tabs = {
-    Main = Window:AddTab('Main'),
-}
+-- ============================================================================
+-- SECTION 5: CREATE TABS
+-- ============================================================================
 
--- Variables
+local EscanorTab = Window:CreateTab("⚔️ Escanor Skills", 4483362458)
+local M1Tab = Window:CreateTab("👊 Auto M1", 4483362458)
+local TPFarmTab = Window:CreateTab("🌀 TP Farm", 4483362458)
+local ShopsTab = Window:CreateTab("🛒 Shops", 4483362458)
+local DragonTab = Window:CreateTab("🐉 Fire Dragon", 4483362458)
+
+-- ============================================================================
+-- SECTION 6: GLOBAL VARIABLES & STATE
+-- ============================================================================
+
+-- Auto Ability Variables
 local autoQEnabled = false
 local autoEEnabled = false
-local autoTPQEnabled = false
 local autoM1Enabled = false
+local qConnection, eConnection, m1Connection = nil, nil, nil
+local lastQAttackTime = 0
+local lastEAttackTime = 0
+local attackDelay = 0.1
+
+-- Auto TP Farm Variables
+local autoTPQEnabled = false
+local tpqConnection = nil
+local lastTPQAttackTime = 0
+local tpHeight = 5
+
+-- Shop Variables
 local autoSmartGachaEnabled = false
 local autoSmartGemCapEnabled = false
+local smartGachaConnection, smartGemCapConnection = nil, nil
+local GachaToggle = nil
+local GemCapToggle = nil
+
+-- Fire Dragon Variables
 local autoDragonSummonEnabled = false
 local autoDragonQEnabled = false
 local autoDragonEEnabled = false
-local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection, dragonQConnection, dragonEConnection = nil, nil, nil, nil, nil, nil, nil, nil, nil
-local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastDragonSummonTime, lastDragonQTime, lastDragonETime = 0, 0, 0, 0, 0, 0
-local attackDelay = 0.1
-local dragonSummonDelay = 1
-local tpHeight = 5
-
--- Toggle references
-local GachaToggle = nil
-local GemCapToggle = nil
+local dragonSummonConnection, dragonQConnection, dragonEConnection = nil, nil, nil
+local lastDragonSummonTime = 0
+local lastDragonQTime = 0
+local lastDragonETime = 0
+local dragonSummonDelay = 5
 local DragonToggle = nil
 
--- Main Tab Groups
-local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
-local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
-local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
-local ShopsGroup = Tabs.Main:AddLeftGroupbox('Shops')
-local FireDragonGroup = Tabs.Main:AddLeftGroupbox('Fire Dragon')
+-- ============================================================================
+-- SECTION 7: UTILITY FUNCTIONS - CURRENCY & ITEMS
+-- ============================================================================
 
--- Function to get Present currency
+-- Get Present currency from player stats
 local function getPresentCurrency()
     local currency = 0
     pcall(function()
@@ -71,7 +124,7 @@ local function getPresentCurrency()
     return currency
 end
 
--- Function to get Poneglyph currency
+-- Get Poneglyph currency from player stats
 local function getPoneglyphCurrency()
     local currency = 0
     pcall(function()
@@ -83,7 +136,7 @@ local function getPoneglyphCurrency()
     return currency
 end
 
--- Function to check if player has Fire Dragon Key
+-- Check if player has Fire Dragon Key in backpack or equipped
 local function hasFireDragonKey()
     local hasKey = false
     pcall(function()
@@ -93,7 +146,6 @@ local function hasFireDragonKey()
             return
         end
         
-        -- Also check character (if equipped)
         local character = player.Character
         if character and character:FindFirstChild("Fire Dragon Key") then
             hasKey = true
@@ -102,7 +154,11 @@ local function hasFireDragonKey()
     return hasKey
 end
 
--- Function to close Dragon Summoner GUI
+-- ============================================================================
+-- SECTION 8: UTILITY FUNCTIONS - GUI MANAGEMENT
+-- ============================================================================
+
+-- Close Dragon Summoner GUI by clicking Bye button
 local function closeDragonGUI()
     pcall(function()
         local gui = player:FindFirstChild("PlayerGui")
@@ -113,13 +169,11 @@ local function closeDragonGUI()
                 if frame then
                     local byeButton = frame:FindFirstChild("Bye")
                     if byeButton and byeButton:IsA("TextButton") then
-                        -- Simulate clicking the Bye button
                         for _, connection in pairs(getconnections(byeButton.MouseButton1Click)) do
                             connection:Fire()
                         end
                     end
                 end
-                -- Also try to destroy it as backup
                 wait(0.1)
                 dragonSummoner:Destroy()
             end
@@ -127,7 +181,11 @@ local function closeDragonGUI()
     end)
 end
 
--- Function to check if model has NpcMarker
+-- ============================================================================
+-- SECTION 9: ENTITY DETECTION FUNCTIONS
+-- ============================================================================
+
+-- Check if model has NpcMarker billboard
 local function hasNpcMarker(model)
     for _, child in pairs(model:GetDescendants()) do
         if child:IsA("BillboardGui") and child.Name == "NpcMarker" then
@@ -137,19 +195,21 @@ local function hasNpcMarker(model)
     return false
 end
 
--- Function to check if something is a raid mob
+-- Check if entity is a valid raid mob
 local function isRaidMob(model)
     if not model:IsA("Model") then return false end
     if not model:FindFirstChild("Humanoid") then return false end
     if not model:FindFirstChild("HumanoidRootPart") then return false end
     if Players:GetPlayerFromCharacter(model) then return false end
+    
     local humanoid = model:FindFirstChild("Humanoid")
     if humanoid.Health <= 0 then return false end
     if not hasNpcMarker(model) then return false end
+    
     return true
 end
 
--- Function to check if something is the Fire Dragon boss
+-- Check if entity is the Fire Dragon boss
 local function isFireDragon(model)
     if not model:IsA("Model") then return false end
     if not model:FindFirstChild("Humanoid") then return false end
@@ -157,16 +217,12 @@ local function isFireDragon(model)
     
     local humanoid = model:FindFirstChild("Humanoid")
     if humanoid.Health <= 0 then return false end
+    if model.Name ~= "Awakened Beast King" then return false end
     
-    -- Check if name is "Awakened Beast King"
-    if model.Name == "Awakened Beast King" then
-        return true
-    end
-    
-    return false
+    return true
 end
 
--- Function to find Fire Dragon
+-- Find Fire Dragon boss in workspace
 local function findFireDragon()
     if workspace:FindFirstChild("Entities") then
         for _, model in pairs(workspace.Entities:GetChildren()) do
@@ -178,13 +234,15 @@ local function findFireDragon()
     return nil
 end
 
--- Function to find nearest raid mob
+-- Find nearest raid mob to player
 local function findNearestRaidMob()
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
         return nil
     end
+    
     local playerPos = player.Character.HumanoidRootPart.Position
     local nearestMob, nearestDistance = nil, math.huge
+    
     if workspace:FindFirstChild("Entities") then
         for _, model in pairs(workspace.Entities:GetChildren()) do
             if isRaidMob(model) then
@@ -199,10 +257,15 @@ local function findNearestRaidMob()
             end
         end
     end
+    
     return nearestMob
 end
 
--- Function to get a suitable target part for abilities
+-- ============================================================================
+-- SECTION 10: ABILITY & COMBAT FUNCTIONS
+-- ============================================================================
+
+-- Get suitable target part for abilities
 local function getTargetPart()
     if workspace:FindFirstChild("Raid Map") then
         for _, child in pairs(workspace["Raid Map"]:GetChildren()) do
@@ -225,7 +288,7 @@ local function getTargetPart()
     return workspace
 end
 
--- Function to get skill args
+-- Get skill arguments for ability usage
 local function getSkillArgs(skill)
     return {
         "Sword Style",
@@ -236,21 +299,25 @@ local function getSkillArgs(skill)
     }
 end
 
--- Function to teleport to position
+-- Teleport player to target position
 local function teleportToPosition(targetPosition)
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
     end
 end
 
--- Function to perform M1 attack
+-- Perform M1 attack
 local function performM1()
     pcall(function()
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("MouseButton1")))
     end)
 end
 
--- Smart buy gacha based on currency (automatically checks live)
+-- ============================================================================
+-- SECTION 11: SHOP AUTOMATION FUNCTIONS
+-- ============================================================================
+
+-- Smart buy gacha based on Present currency
 local function smartBuyGacha()
     pcall(function()
         local presents = getPresentCurrency()
@@ -263,16 +330,21 @@ local function smartBuyGacha()
         elseif presents >= 100 then
             version = 1
         else
-            -- Not enough currency, disable
             autoSmartGachaEnabled = false
             if smartGachaConnection then
                 smartGachaConnection:Disconnect()
                 smartGachaConnection = nil
             end
             if GachaToggle then
-                GachaToggle:SetValue(false)
+                GachaToggle:Set(false)
             end
-            Library:Notify('❌ Christmas Gacha disabled - Not enough presents!')
+            Rayfield:Notify({
+                Title = "Christmas Gacha",
+                Content = "Disabled - Not enough presents!",
+                Duration = 5,
+                Image = 4483362458,
+                Actions = {}
+            })
             return
         end
         
@@ -280,28 +352,31 @@ local function smartBuyGacha()
     end)
 end
 
--- Smart increase gem cap based on currency (automatically checks live)
+-- Smart increase gem cap based on Poneglyph currency
 local function smartIncreaseGemCap()
     pcall(function()
         local poneglyphs = getPoneglyphCurrency()
         
-        -- Stop at 1 poneglyph since it's bugged
         if poneglyphs <= 1 then
-            -- Not enough currency, disable
             autoSmartGemCapEnabled = false
             if smartGemCapConnection then
                 smartGemCapConnection:Disconnect()
                 smartGemCapConnection = nil
             end
             if GemCapToggle then
-                GemCapToggle:SetValue(false)
+                GemCapToggle:Set(false)
             end
-            Library:Notify('❌ Gem Cap disabled - Down to last poneglyph!')
+            Rayfield:Notify({
+                Title = "Gem Cap Increase",
+                Content = "Disabled - Down to last poneglyph!",
+                Duration = 5,
+                Image = 4483362458,
+                Actions = {}
+            })
             return
         end
         
         local amount = 1
-        
         if poneglyphs >= 10 then
             amount = 10
         elseif poneglyphs >= 5 then
@@ -314,12 +389,16 @@ local function smartIncreaseGemCap()
     end)
 end
 
--- Function to summon dragon
+-- ============================================================================
+-- SECTION 12: FIRE DRAGON AUTOMATION FUNCTIONS
+-- ============================================================================
+
+-- Summon Fire Dragon boss
 local function summonDragon()
     pcall(function()
         local currentTime = tick()
         
-        -- Check delay
+        -- Check cooldown to prevent spam
         if currentTime - lastDragonSummonTime < dragonSummonDelay then
             return
         end
@@ -327,31 +406,37 @@ local function summonDragon()
         -- Check if dragon is already spawned
         local existingDragon = findFireDragon()
         if existingDragon then
-            -- Dragon already exists, don't summon
             return
         end
         
         -- Check if player has Fire Dragon Key
         if not hasFireDragonKey() then
-            -- No keys left, disable
             autoDragonSummonEnabled = false
             if dragonSummonConnection then
                 dragonSummonConnection:Disconnect()
                 dragonSummonConnection = nil
             end
             if DragonToggle then
-                DragonToggle:SetValue(false)
+                DragonToggle:Set(false)
             end
-            
-            Library:Notify('❌ Dragon Summon disabled - Out of Fire Dragon Keys!')
+            Rayfield:Notify({
+                Title = "Dragon Summon",
+                Content = "Disabled - Out of Fire Dragon Keys!",
+                Duration = 5,
+                Image = 4483362458,
+                Actions = {}
+            })
             return
         end
         
-        -- Open GUI
+        -- Update timestamp BEFORE summoning to prevent multiple summons
+        lastDragonSummonTime = currentTime
+        
+        -- Open Dragon Summoner GUI
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
         wait(0.3)
         
-        -- Confirm summon
+        -- Confirm summon and close GUI
         local gui = player:WaitForChild("PlayerGui")
         local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
         if dragonSummoner then
@@ -359,24 +444,41 @@ local function summonDragon()
             if eventRemote then
                 eventRemote:FireServer()
                 wait(0.1)
-                -- Close GUI using the Bye button
                 closeDragonGUI()
+                wait(2) -- Give dragon time to spawn
             end
         end
-        
-        lastDragonSummonTime = currentTime
     end)
 end
 
--- Toggle for Auto Q Skill
-EscanorSkillGroup:AddToggle('AutoQ', {
-    Text = 'Escanor Q',
-    Default = false,
-    Tooltip = 'Automatically uses Q skill when raid mob detected',
+-- ============================================================================
+-- SECTION 13: ESCANOR SKILLS TAB
+-- ============================================================================
+
+local EscanorSection = EscanorTab:CreateSection("Escanor Auto Skills")
+
+Rayfield:Notify({
+    Title = "Auto Skills Loaded",
+    Content = "Script initialized successfully! Anti-AFK is active.",
+    Duration = 5,
+    Image = 4483362458,
+    Actions = {}
+})
+
+local QToggle = EscanorTab:CreateToggle({
+    Name = "Auto Q Skill",
+    CurrentValue = false,
+    Flag = "EscanorQ",
     Callback = function(value)
         autoQEnabled = value
         if value then
-            Library:Notify('✅ Escanor Q enabled!')
+            Rayfield:Notify({
+                Title = "Escanor Q",
+                Content = "Enabled - Attacking raid mobs!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             qConnection = RunService.Heartbeat:Connect(function()
                 if not autoQEnabled then return end
                 local mob = findNearestRaidMob()
@@ -391,23 +493,32 @@ EscanorSkillGroup:AddToggle('AutoQ', {
                 end
             end)
         else
-            Library:Notify('❌ Escanor Q disabled.')
+            Rayfield:Notify({
+                Title = "Escanor Q",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if qConnection then qConnection:Disconnect() qConnection = nil end
         end
     end
 })
 
-EscanorSkillGroup:AddDivider()
-
--- Toggle for Auto E Skill
-EscanorSkillGroup:AddToggle('AutoE', {
-    Text = 'Escanor E',
-    Default = false,
-    Tooltip = 'Automatically uses E skill when raid mob detected',
+local EToggle = EscanorTab:CreateToggle({
+    Name = "Auto E Skill",
+    CurrentValue = false,
+    Flag = "EscanorE",
     Callback = function(value)
         autoEEnabled = value
         if value then
-            Library:Notify('✅ Escanor E enabled!')
+            Rayfield:Notify({
+                Title = "Escanor E",
+                Content = "Enabled - Attacking raid mobs!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             eConnection = RunService.Heartbeat:Connect(function()
                 if not autoEEnabled then return end
                 local mob = findNearestRaidMob()
@@ -422,27 +533,79 @@ EscanorSkillGroup:AddToggle('AutoE', {
                 end
             end)
         else
-            Library:Notify('❌ Escanor E disabled.')
+            Rayfield:Notify({
+                Title = "Escanor E",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if eConnection then eConnection:Disconnect() eConnection = nil end
         end
     end
 })
 
-EscanorSkillGroup:AddDivider()
-EscanorSkillGroup:AddLabel('Attacks mobs with NpcMarker')
-EscanorSkillGroup:AddLabel('No teleportation')
-EscanorSkillGroup:AddDivider()
-EscanorSkillGroup:AddLabel('🟢 Anti-AFK: Active')
+EscanorTab:CreateParagraph({Title = "ℹ️ Info", Content = "Automatically targets raid mobs with NpcMarker. Does not teleport to mobs. Anti-AFK is always active."})
 
--- Toggle for Auto TP + Q Farm
-TPFarmGroup:AddToggle('AutoTPQ', {
-    Text = 'Auto TP + Q Farm',
-    Default = false,
-    Tooltip = 'Teleports to raid mob and uses Q skill',
+-- ============================================================================
+-- SECTION 14: AUTO M1 TAB
+-- ============================================================================
+
+local M1Section = M1Tab:CreateSection("Sword Style M1 Automation")
+
+local M1Toggle = M1Tab:CreateToggle({
+    Name = "Auto M1 (Sword Style)",
+    CurrentValue = false,
+    Flag = "AutoM1",
+    Callback = function(value)
+        autoM1Enabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Auto M1",
+                Content = "Enabled - Spamming M1 attacks!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            m1Connection = RunService.Heartbeat:Connect(function()
+                if not autoM1Enabled then return end
+                performM1()
+            end)
+        else
+            Rayfield:Notify({
+                Title = "Auto M1",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            if m1Connection then m1Connection:Disconnect() m1Connection = nil end
+        end
+    end
+})
+
+M1Tab:CreateParagraph({Title = "ℹ️ Info", Content = "Continuously spams Sword Style M1 attacks. Works at all times when enabled."})
+
+-- ============================================================================
+-- SECTION 15: TP FARM TAB
+-- ============================================================================
+
+local TPFarmSection = TPFarmTab:CreateSection("Teleport Farm Configuration")
+
+local TPQToggle = TPFarmTab:CreateToggle({
+    Name = "Auto TP + Q Farm",
+    CurrentValue = false,
+    Flag = "AutoTPQ",
     Callback = function(value)
         autoTPQEnabled = value
         if value then
-            Library:Notify('✅ Auto TP + Q Farm enabled!')
+            Rayfield:Notify({
+                Title = "TP + Q Farm",
+                Content = "Enabled - Teleporting and attacking!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             tpqConnection = RunService.Heartbeat:Connect(function()
                 if not autoTPQEnabled then return end
                 local mob = findNearestRaidMob()
@@ -458,115 +621,144 @@ TPFarmGroup:AddToggle('AutoTPQ', {
                 end
             end)
         else
-            Library:Notify('❌ Auto TP + Q Farm disabled.')
+            Rayfield:Notify({
+                Title = "TP + Q Farm",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if tpqConnection then tpqConnection:Disconnect() tpqConnection = nil end
         end
     end
 })
 
-TPFarmGroup:AddDivider()
-TPFarmGroup:AddLabel('Teleports to mob')
-TPFarmGroup:AddLabel('Uses Q skill')
+TPFarmTab:CreateParagraph({Title = "ℹ️ Info", Content = "Teleports to nearest raid mob and uses Q skill automatically. Efficient for farming."})
 
--- Toggle for Auto M1
-M1Group:AddToggle('AutoM1', {
-    Text = 'Auto M1 (Sword Style)',
-    Default = false,
-    Tooltip = 'Automatically spams Sword Style M1 at all times',
-    Callback = function(value)
-        autoM1Enabled = value
-        if value then
-            Library:Notify('✅ Auto M1 enabled!')
-            m1Connection = RunService.Heartbeat:Connect(function()
-                if not autoM1Enabled then return end
-                performM1()
-            end)
-        else
-            Library:Notify('❌ Auto M1 disabled.')
-            if m1Connection then m1Connection:Disconnect() m1Connection = nil end
-        end
-    end
-})
+-- ============================================================================
+-- SECTION 16: SHOPS TAB
+-- ============================================================================
 
-M1Group:AddDivider()
-M1Group:AddLabel('Uses Sword Style M1')
-M1Group:AddLabel('Spams constantly')
+local ShopsSection = ShopsTab:CreateSection("Smart Shop Automation")
 
--- Toggle for Smart Buy Gacha
-GachaToggle = ShopsGroup:AddToggle('AutoSmartGacha', {
-    Text = 'Smart Christmas Gacha',
-    Default = false,
-    Tooltip = 'Auto-detects Presents and buys the best option',
+GachaToggle = ShopsTab:CreateToggle({
+    Name = "Smart Christmas Gacha",
+    CurrentValue = false,
+    Flag = "SmartGacha",
     Callback = function(value)
         autoSmartGachaEnabled = value
         if value then
             local presents = getPresentCurrency()
-            Library:Notify('✅ Smart Gacha enabled! (' .. presents .. ' presents)')
+            Rayfield:Notify({
+                Title = "Smart Gacha",
+                Content = "Enabled - " .. presents .. " presents available",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             smartGachaConnection = RunService.Heartbeat:Connect(function()
                 if not autoSmartGachaEnabled then return end
                 smartBuyGacha()
             end)
         else
-            Library:Notify('❌ Smart Christmas Gacha disabled.')
+            Rayfield:Notify({
+                Title = "Smart Gacha",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if smartGachaConnection then smartGachaConnection:Disconnect() smartGachaConnection = nil end
         end
     end
 })
 
-ShopsGroup:AddDivider()
-
--- Toggle for Smart Increase Gem Cap
-GemCapToggle = ShopsGroup:AddToggle('AutoSmartGemCap', {
-    Text = 'Smart Gem Cap Increase',
-    Default = false,
-    Tooltip = 'Auto-detects Poneglyphs and buys the best option (stops at 1)',
+GemCapToggle = ShopsTab:CreateToggle({
+    Name = "Smart Gem Cap Increase",
+    CurrentValue = false,
+    Flag = "SmartGemCap",
     Callback = function(value)
         autoSmartGemCapEnabled = value
         if value then
             local poneglyphs = getPoneglyphCurrency()
-            Library:Notify('✅ Smart Gem Cap enabled! (' .. poneglyphs .. ' poneglyphs)')
+            Rayfield:Notify({
+                Title = "Smart Gem Cap",
+                Content = "Enabled - " .. poneglyphs .. " poneglyphs available",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             smartGemCapConnection = RunService.Heartbeat:Connect(function()
                 if not autoSmartGemCapEnabled then return end
                 smartIncreaseGemCap()
             end)
         else
-            Library:Notify('❌ Smart Gem Cap disabled.')
+            Rayfield:Notify({
+                Title = "Smart Gem Cap",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if smartGemCapConnection then smartGemCapConnection:Disconnect() smartGemCapConnection = nil end
         end
     end
 })
 
--- Toggle for Auto Dragon Summon
-DragonToggle = FireDragonGroup:AddToggle('AutoDragonSummon', {
-    Text = 'Auto Summon Dragon',
-    Default = false,
-    Tooltip = 'Auto-summons if not already spawned',
+ShopsTab:CreateParagraph({Title = "ℹ️ Gacha Info", Content = "Auto-detects Present currency and buys the best option (100/500/1000). Stops when currency runs out."})
+ShopsTab:CreateParagraph({Title = "ℹ️ Gem Cap Info", Content = "Auto-detects Poneglyphs and increases gem cap (1/5/10). Stops at 1 poneglyph to prevent bugs."})
+
+-- ============================================================================
+-- SECTION 17: FIRE DRAGON TAB
+-- ============================================================================
+
+local DragonSection = DragonTab:CreateSection("Fire Dragon Automation")
+
+DragonToggle = DragonTab:CreateToggle({
+    Name = "Auto Summon Dragon",
+    CurrentValue = false,
+    Flag = "AutoDragonSummon",
     Callback = function(value)
         autoDragonSummonEnabled = value
         if value then
-            Library:Notify('✅ Auto Dragon Summon enabled!')
+            Rayfield:Notify({
+                Title = "Dragon Summon",
+                Content = "Enabled - Will summon when not spawned",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             dragonSummonConnection = RunService.Heartbeat:Connect(function()
                 if not autoDragonSummonEnabled then return end
                 summonDragon()
             end)
         else
-            Library:Notify('❌ Auto Dragon Summon disabled.')
+            Rayfield:Notify({
+                Title = "Dragon Summon",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if dragonSummonConnection then dragonSummonConnection:Disconnect() dragonSummonConnection = nil end
         end
     end
 })
 
-FireDragonGroup:AddDivider()
-
--- Toggle for Fire Dragon Q
-FireDragonGroup:AddToggle('AutoDragonQ', {
-    Text = 'Dragon Killer Q',
-    Default = false,
-    Tooltip = 'Uses Q skill on Awakened Beast King',
+local DragonQToggle = DragonTab:CreateToggle({
+    Name = "Dragon Killer Q",
+    CurrentValue = false,
+    Flag = "DragonQ",
     Callback = function(value)
         autoDragonQEnabled = value
         if value then
-            Library:Notify('✅ Dragon Killer Q enabled!')
+            Rayfield:Notify({
+                Title = "Dragon Killer Q",
+                Content = "Enabled - Attacking Awakened Beast King!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             dragonQConnection = RunService.Heartbeat:Connect(function()
                 if not autoDragonQEnabled then return end
                 local dragon = findFireDragon()
@@ -581,23 +773,32 @@ FireDragonGroup:AddToggle('AutoDragonQ', {
                 end
             end)
         else
-            Library:Notify('❌ Dragon Killer Q disabled.')
+            Rayfield:Notify({
+                Title = "Dragon Killer Q",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if dragonQConnection then dragonQConnection:Disconnect() dragonQConnection = nil end
         end
     end
 })
 
-FireDragonGroup:AddDivider()
-
--- Toggle for Fire Dragon E
-FireDragonGroup:AddToggle('AutoDragonE', {
-    Text = 'Dragon Killer E',
-    Default = false,
-    Tooltip = 'Uses E skill on Awakened Beast King',
+local DragonEToggle = DragonTab:CreateToggle({
+    Name = "Dragon Killer E",
+    CurrentValue = false,
+    Flag = "DragonE",
     Callback = function(value)
         autoDragonEEnabled = value
         if value then
-            Library:Notify('✅ Dragon Killer E enabled!')
+            Rayfield:Notify({
+                Title = "Dragon Killer E",
+                Content = "Enabled - Attacking Awakened Beast King!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             dragonEConnection = RunService.Heartbeat:Connect(function()
                 if not autoDragonEEnabled then return end
                 local dragon = findFireDragon()
@@ -612,33 +813,25 @@ FireDragonGroup:AddToggle('AutoDragonE', {
                 end
             end)
         else
-            Library:Notify('❌ Dragon Killer E disabled.')
+            Rayfield:Notify({
+                Title = "Dragon Killer E",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
             if dragonEConnection then dragonEConnection:Disconnect() dragonEConnection = nil end
         end
     end
 })
 
-FireDragonGroup:AddDivider()
-FireDragonGroup:AddLabel('Only summons if not spawned')
-FireDragonGroup:AddLabel('Awakened Beast King')
+DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire Dragon if not already spawned. Uses Fire Dragon Keys from your backpack. 5 second cooldown between summons to prevent key waste. Target: Awakened Beast King (5B HP)"})
 
--- UI Settings
-Library:SetWatermarkVisibility(false)
+-- ============================================================================
+-- SECTION 18: SCRIPT LOADED NOTIFICATION
+-- ============================================================================
 
--- Unload cleanup
-local function Unload()
-    if qConnection then qConnection:Disconnect() end
-    if eConnection then eConnection:Disconnect() end
-    if tpqConnection then tpqConnection:Disconnect() end
-    if m1Connection then m1Connection:Disconnect() end
-    if smartGachaConnection then smartGachaConnection:Disconnect() end
-    if smartGemCapConnection then smartGemCapConnection:Disconnect() end
-    if dragonSummonConnection then dragonSummonConnection:Disconnect() end
-    if dragonQConnection then dragonQConnection:Disconnect() end
-    if dragonEConnection then dragonEConnection:Disconnect() end
-    Library:Unload()
-end
-
-Library:OnUnload(Unload)
-
-print("✅ Auto Q & E Skill script loaded!")
+print("✅ Auto Skills Script Loaded Successfully!")
+print("📱 UI: Rayfield (Modern & Smooth)")
+print("🔧 Features: Escanor Skills | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
+print("🌐 GitHub: EvenOnFN/Personal-Script")
