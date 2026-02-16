@@ -44,13 +44,40 @@ local lastQAttackTime, lastEAttackTime, lastTPQAttackTime = 0, 0, 0
 local attackDelay = 0.1
 local tpHeight = 5
 
+-- Toggle references
+local GachaToggle = nil
+local GemCapToggle = nil
+
 -- Main Tab Groups
 local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
 local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
 local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
-local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Smart Christmas Gacha')
-local GemCapGroup = Tabs.Main:AddLeftGroupbox('Smart Gem Cap Increase')
+local ShopsGroup = Tabs.Main:AddLeftGroupbox('Shops')
 local DragonSummonGroup = Tabs.Main:AddRightGroupbox('Auto Dragon Summon')
+
+-- Function to get Present currency
+local function getPresentCurrency()
+    local currency = 0
+    pcall(function()
+        local stats = player:FindFirstChild("Stats")
+        if stats and stats:FindFirstChild("Present") then
+            currency = stats.Present.Value
+        end
+    end)
+    return currency
+end
+
+-- Function to get Poneglyph currency
+local function getPoneglyphCurrency()
+    local currency = 0
+    pcall(function()
+        local stats = player:FindFirstChild("Stats")
+        if stats and stats:FindFirstChild("Poneglyphs") then
+            currency = stats.Poneglyphs.Value
+        end
+    end)
+    return currency
+end
 
 -- Function to check if model has NpcMarker
 local function hasNpcMarker(model)
@@ -146,56 +173,60 @@ local function performM1()
     end)
 end
 
--- Function to get player's currency (you'll need to find where this is stored)
-local function getCurrency()
-    -- This is a placeholder - you'll need to find where the currency is stored
-    -- Common locations: player.leaderstats, player.Data, PlayerGui, etc.
-    local currency = 0
-    pcall(function()
-        -- Try common locations
-        if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Currency") then
-            currency = player.leaderstats.Currency.Value
-        elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Currency") then
-            currency = player.Data.Currency.Value
-        end
-    end)
-    return currency
-end
-
--- Smart buy gacha based on currency
+-- Smart buy gacha based on currency (automatically checks live)
 local function smartBuyGacha()
     pcall(function()
-        local currency = getCurrency()
-        local version = 1 -- Default to cheapest
+        local presents = getPresentCurrency()
+        local version = 1
         
-        if currency >= 1000 then
-            version = 3 -- Buy expensive version
-        elseif currency >= 500 then
-            version = 2 -- Buy medium version
-        elseif currency >= 100 then
-            version = 1 -- Buy cheap version
+        if presents >= 1000 then
+            version = 3
+        elseif presents >= 500 then
+            version = 2
+        elseif presents >= 100 then
+            version = 1
         else
-            return -- Not enough currency
+            -- Not enough currency, disable
+            autoSmartGachaEnabled = false
+            if smartGachaConnection then
+                smartGachaConnection:Disconnect()
+                smartGachaConnection = nil
+            end
+            if GachaToggle then
+                GachaToggle:SetValue(false)
+            end
+            Library:Notify('❌ Christmas Gacha disabled - Not enough presents!')
+            return
         end
         
         player:WaitForChild("PlayerGui"):WaitForChild("NewPresentShop"):WaitForChild("buy"):FireServer(version)
     end)
 end
 
--- Smart increase gem cap based on currency
+-- Smart increase gem cap based on currency (automatically checks live)
 local function smartIncreaseGemCap()
     pcall(function()
-        local currency = getCurrency()
-        local amount = 1 -- Default to cheapest
+        local poneglyphs = getPoneglyphCurrency()
+        local amount = 1
         
-        if currency >= 10 then
-            amount = 10 -- Buy expensive version
-        elseif currency >= 5 then
-            amount = 5 -- Buy medium version
-        elseif currency >= 1 then
-            amount = 1 -- Buy cheap version
+        if poneglyphs >= 10 then
+            amount = 10
+        elseif poneglyphs >= 5 then
+            amount = 5
+        elseif poneglyphs >= 1 then
+            amount = 1
         else
-            return -- Not enough currency
+            -- Not enough currency, disable
+            autoSmartGemCapEnabled = false
+            if smartGemCapConnection then
+                smartGemCapConnection:Disconnect()
+                smartGemCapConnection = nil
+            end
+            if GemCapToggle then
+                GemCapToggle:SetValue(false)
+            end
+            Library:Notify('❌ Gem Cap disabled - Not enough poneglyphs!')
+            return
         end
         
         player:WaitForChild("PlayerGui"):WaitForChild("NewPoneglyphMerchant"):WaitForChild("Event"):FireServer(amount)
@@ -345,14 +376,15 @@ M1Group:AddLabel('Uses Sword Style M1')
 M1Group:AddLabel('Spams constantly')
 
 -- Toggle for Smart Buy Gacha
-AutoBuyGroup:AddToggle('AutoSmartGacha', {
-    Text = 'Smart Buy Christmas Gacha',
+GachaToggle = ShopsGroup:AddToggle('AutoSmartGacha', {
+    Text = 'Smart Christmas Gacha',
     Default = false,
-    Tooltip = 'Buys the best gacha based on your currency',
+    Tooltip = 'Auto-detects Presents and buys the best option',
     Callback = function(value)
         autoSmartGachaEnabled = value
         if value then
-            Library:Notify('✅ Smart Christmas Gacha enabled!')
+            local presents = getPresentCurrency()
+            Library:Notify('✅ Smart Gacha enabled! (' .. presents .. ' presents)')
             smartGachaConnection = RunService.Heartbeat:Connect(function()
                 if not autoSmartGachaEnabled then return end
                 smartBuyGacha()
@@ -364,21 +396,18 @@ AutoBuyGroup:AddToggle('AutoSmartGacha', {
     end
 })
 
-AutoBuyGroup:AddDivider()
-AutoBuyGroup:AddLabel('Auto buys best version:')
-AutoBuyGroup:AddLabel('1000+ → Version 3')
-AutoBuyGroup:AddLabel('500+ → Version 2')
-AutoBuyGroup:AddLabel('100+ → Version 1')
+ShopsGroup:AddDivider()
 
 -- Toggle for Smart Increase Gem Cap
-GemCapGroup:AddToggle('AutoSmartGemCap', {
-    Text = 'Smart Increase Gem Cap',
+GemCapToggle = ShopsGroup:AddToggle('AutoSmartGemCap', {
+    Text = 'Smart Gem Cap Increase',
     Default = false,
-    Tooltip = 'Increases gem cap with best option for your currency',
+    Tooltip = 'Auto-detects Poneglyphs and buys the best option',
     Callback = function(value)
         autoSmartGemCapEnabled = value
         if value then
-            Library:Notify('✅ Smart Gem Cap enabled!')
+            local poneglyphs = getPoneglyphCurrency()
+            Library:Notify('✅ Smart Gem Cap enabled! (' .. poneglyphs .. ' poneglyphs)')
             smartGemCapConnection = RunService.Heartbeat:Connect(function()
                 if not autoSmartGemCapEnabled then return end
                 smartIncreaseGemCap()
@@ -389,12 +418,6 @@ GemCapGroup:AddToggle('AutoSmartGemCap', {
         end
     end
 })
-
-GemCapGroup:AddDivider()
-GemCapGroup:AddLabel('Auto buys best option:')
-GemCapGroup:AddLabel('10+ → Buy 10')
-GemCapGroup:AddLabel('5+ → Buy 5')
-GemCapGroup:AddLabel('1+ → Buy 1')
 
 -- Toggle for Auto Dragon Summon
 DragonSummonGroup:AddToggle('AutoDragonSummon', {
