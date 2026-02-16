@@ -102,6 +102,31 @@ local function hasFireDragonKey()
     return hasKey
 end
 
+-- Function to close Dragon Summoner GUI
+local function closeDragonGUI()
+    pcall(function()
+        local gui = player:FindFirstChild("PlayerGui")
+        if gui then
+            local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
+            if dragonSummoner then
+                local frame = dragonSummoner:FindFirstChild("Frame")
+                if frame then
+                    local byeButton = frame:FindFirstChild("Bye")
+                    if byeButton and byeButton:IsA("TextButton") then
+                        -- Simulate clicking the Bye button
+                        for _, connection in pairs(getconnections(byeButton.MouseButton1Click)) do
+                            connection:Fire()
+                        end
+                    end
+                end
+                -- Also try to destroy it as backup
+                wait(0.1)
+                dragonSummoner:Destroy()
+            end
+        end
+    end)
+end
+
 -- Function to check if model has NpcMarker
 local function hasNpcMarker(model)
     for _, child in pairs(model:GetDescendants()) do
@@ -289,7 +314,7 @@ local function smartIncreaseGemCap()
     end)
 end
 
--- Function to summon dragon (without GUI)
+-- Function to summon dragon
 local function summonDragon()
     pcall(function()
         local currentTime = tick()
@@ -322,11 +347,11 @@ local function summonDragon()
             return
         end
         
-        -- Summon dragon directly without GUI
+        -- Open GUI
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
         wait(0.3)
         
-        -- Fire the summon event
+        -- Confirm summon
         local gui = player:WaitForChild("PlayerGui")
         local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
         if dragonSummoner then
@@ -334,8 +359,8 @@ local function summonDragon()
             if eventRemote then
                 eventRemote:FireServer()
                 wait(0.1)
-                -- Close GUI immediately
-                dragonSummoner:Destroy()
+                -- Close GUI using the Bye button
+                closeDragonGUI()
             end
         end
         
