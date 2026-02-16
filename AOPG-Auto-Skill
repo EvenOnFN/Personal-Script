@@ -36,10 +36,10 @@ local autoQEnabled = false
 local autoEEnabled = false
 local autoTPQEnabled = false
 local autoM1Enabled = false
-local autoBuyGacha3Enabled = false
-local autoGemCapEnabled = false
+local autoSmartGachaEnabled = false
+local autoSmartGemCapEnabled = false
 local autoDragonSummonEnabled = false
-local qConnection, eConnection, tpqConnection, m1Connection, buyGacha3Connection, gemCapConnection, dragonSummonConnection = nil, nil, nil, nil, nil, nil, nil
+local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection = nil, nil, nil, nil, nil, nil, nil
 local lastQAttackTime, lastEAttackTime, lastTPQAttackTime = 0, 0, 0
 local attackDelay = 0.1
 local tpHeight = 5
@@ -48,8 +48,8 @@ local tpHeight = 5
 local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
 local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
 local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
-local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Buy Christmas Gacha')
-local GemCapGroup = Tabs.Main:AddLeftGroupbox('Auto Increase Gem Cap')
+local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Smart Christmas Gacha')
+local GemCapGroup = Tabs.Main:AddLeftGroupbox('Smart Gem Cap Increase')
 local DragonSummonGroup = Tabs.Main:AddRightGroupbox('Auto Dragon Summon')
 
 -- Function to check if model has NpcMarker
@@ -146,28 +146,67 @@ local function performM1()
     end)
 end
 
--- Function to buy gacha version 3
-local function buyGacha3()
+-- Function to get player's currency (you'll need to find where this is stored)
+local function getCurrency()
+    -- This is a placeholder - you'll need to find where the currency is stored
+    -- Common locations: player.leaderstats, player.Data, PlayerGui, etc.
+    local currency = 0
     pcall(function()
-        player:WaitForChild("PlayerGui"):WaitForChild("NewPresentShop"):WaitForChild("buy"):FireServer(3)
+        -- Try common locations
+        if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Currency") then
+            currency = player.leaderstats.Currency.Value
+        elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Currency") then
+            currency = player.Data.Currency.Value
+        end
+    end)
+    return currency
+end
+
+-- Smart buy gacha based on currency
+local function smartBuyGacha()
+    pcall(function()
+        local currency = getCurrency()
+        local version = 1 -- Default to cheapest
+        
+        if currency >= 1000 then
+            version = 3 -- Buy expensive version
+        elseif currency >= 500 then
+            version = 2 -- Buy medium version
+        elseif currency >= 100 then
+            version = 1 -- Buy cheap version
+        else
+            return -- Not enough currency
+        end
+        
+        player:WaitForChild("PlayerGui"):WaitForChild("NewPresentShop"):WaitForChild("buy"):FireServer(version)
     end)
 end
 
--- Function to increase gem cap
-local function increaseGemCap()
+-- Smart increase gem cap based on currency
+local function smartIncreaseGemCap()
     pcall(function()
-        player:WaitForChild("PlayerGui"):WaitForChild("NewPoneglyphMerchant"):WaitForChild("Event"):FireServer(10)
+        local currency = getCurrency()
+        local amount = 1 -- Default to cheapest
+        
+        if currency >= 10 then
+            amount = 10 -- Buy expensive version
+        elseif currency >= 5 then
+            amount = 5 -- Buy medium version
+        elseif currency >= 1 then
+            amount = 1 -- Buy cheap version
+        else
+            return -- Not enough currency
+        end
+        
+        player:WaitForChild("PlayerGui"):WaitForChild("NewPoneglyphMerchant"):WaitForChild("Event"):FireServer(amount)
     end)
 end
 
 -- Function to summon dragon
 local function summonDragon()
     pcall(function()
-        -- First, open the Dragon Summoner GUI
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
         wait(0.3)
-        
-        -- Then click confirm
         local gui = player:WaitForChild("PlayerGui")
         local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
         if dragonSummoner then
@@ -175,7 +214,6 @@ local function summonDragon()
             if eventRemote then
                 eventRemote:FireServer()
                 wait(0.1)
-                -- Close the GUI
                 dragonSummoner:Destroy()
             end
         end
@@ -306,53 +344,57 @@ M1Group:AddDivider()
 M1Group:AddLabel('Uses Sword Style M1')
 M1Group:AddLabel('Spams constantly')
 
--- Toggle for Auto Buy Gacha
-AutoBuyGroup:AddToggle('AutoBuyGacha3', {
-    Text = 'Buy Christmas Gacha',
+-- Toggle for Smart Buy Gacha
+AutoBuyGroup:AddToggle('AutoSmartGacha', {
+    Text = 'Smart Buy Christmas Gacha',
     Default = false,
-    Tooltip = 'Automatically buys Christmas Gacha with no delay',
+    Tooltip = 'Buys the best gacha based on your currency',
     Callback = function(value)
-        autoBuyGacha3Enabled = value
+        autoSmartGachaEnabled = value
         if value then
-            Library:Notify('✅ Auto Buy Christmas Gacha enabled!')
-            buyGacha3Connection = RunService.Heartbeat:Connect(function()
-                if not autoBuyGacha3Enabled then return end
-                buyGacha3()
+            Library:Notify('✅ Smart Christmas Gacha enabled!')
+            smartGachaConnection = RunService.Heartbeat:Connect(function()
+                if not autoSmartGachaEnabled then return end
+                smartBuyGacha()
             end)
         else
-            Library:Notify('❌ Auto Buy Christmas Gacha disabled.')
-            if buyGacha3Connection then buyGacha3Connection:Disconnect() buyGacha3Connection = nil end
+            Library:Notify('❌ Smart Christmas Gacha disabled.')
+            if smartGachaConnection then smartGachaConnection:Disconnect() smartGachaConnection = nil end
         end
     end
 })
 
 AutoBuyGroup:AddDivider()
-AutoBuyGroup:AddLabel('Spams buy with no delay')
-AutoBuyGroup:AddLabel('⚠️ Use carefully!')
+AutoBuyGroup:AddLabel('Auto buys best version:')
+AutoBuyGroup:AddLabel('1000+ → Version 3')
+AutoBuyGroup:AddLabel('500+ → Version 2')
+AutoBuyGroup:AddLabel('100+ → Version 1')
 
--- Toggle for Auto Increase Gem Cap
-GemCapGroup:AddToggle('AutoGemCap', {
-    Text = 'Auto Increase Gem Cap',
+-- Toggle for Smart Increase Gem Cap
+GemCapGroup:AddToggle('AutoSmartGemCap', {
+    Text = 'Smart Increase Gem Cap',
     Default = false,
-    Tooltip = 'Automatically increases gem cap with no delay',
+    Tooltip = 'Increases gem cap with best option for your currency',
     Callback = function(value)
-        autoGemCapEnabled = value
+        autoSmartGemCapEnabled = value
         if value then
-            Library:Notify('✅ Auto Increase Gem Cap enabled!')
-            gemCapConnection = RunService.Heartbeat:Connect(function()
-                if not autoGemCapEnabled then return end
-                increaseGemCap()
+            Library:Notify('✅ Smart Gem Cap enabled!')
+            smartGemCapConnection = RunService.Heartbeat:Connect(function()
+                if not autoSmartGemCapEnabled then return end
+                smartIncreaseGemCap()
             end)
         else
-            Library:Notify('❌ Auto Increase Gem Cap disabled.')
-            if gemCapConnection then gemCapConnection:Disconnect() gemCapConnection = nil end
+            Library:Notify('❌ Smart Gem Cap disabled.')
+            if smartGemCapConnection then smartGemCapConnection:Disconnect() smartGemCapConnection = nil end
         end
     end
 })
 
 GemCapGroup:AddDivider()
-GemCapGroup:AddLabel('Increases gem capacity')
-GemCapGroup:AddLabel('Spams with no delay')
+GemCapGroup:AddLabel('Auto buys best option:')
+GemCapGroup:AddLabel('10+ → Buy 10')
+GemCapGroup:AddLabel('5+ → Buy 5')
+GemCapGroup:AddLabel('1+ → Buy 1')
 
 -- Toggle for Auto Dragon Summon
 DragonSummonGroup:AddToggle('AutoDragonSummon', {
@@ -379,8 +421,7 @@ DragonSummonGroup:AddLabel('Opens, confirms & closes GUI')
 DragonSummonGroup:AddLabel('Requires Fire Dragon Key')
 
 -- UI Settings
-Library:SetWatermarkVisibility(true)
-Library:SetWatermark('Auto Skills')
+Library:SetWatermarkVisibility(false)
 
 -- Unload cleanup
 local function Unload()
@@ -388,8 +429,8 @@ local function Unload()
     if eConnection then eConnection:Disconnect() end
     if tpqConnection then tpqConnection:Disconnect() end
     if m1Connection then m1Connection:Disconnect() end
-    if buyGacha3Connection then buyGacha3Connection:Disconnect() end
-    if gemCapConnection then gemCapConnection:Disconnect() end
+    if smartGachaConnection then smartGachaConnection:Disconnect() end
+    if smartGemCapConnection then smartGemCapConnection:Disconnect() end
     if dragonSummonConnection then dragonSummonConnection:Disconnect() end
     Library:Unload()
 end
