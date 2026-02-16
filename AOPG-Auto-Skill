@@ -36,203 +36,96 @@ local autoQEnabled = false
 local autoEEnabled = false
 local autoTPQEnabled = false
 local autoM1Enabled = false
-local autoBuy1Enabled = false
-local autoBuy3Enabled = false
-local qConnection = nil
-local eConnection = nil
-local tpqConnection = nil
-local m1Connection = nil
-local buy1Connection = nil
-local buy3Connection = nil
-local monitorConnection = nil
-local lastQAttackTime = 0
-local lastEAttackTime = 0
-local lastTPQAttackTime = 0
-local lastM1AttackTime = 0
+local autoBuyGacha3Enabled = false
+local autoGemCapEnabled = false
+local qConnection, eConnection, tpqConnection, m1Connection, buyGacha3Connection, gemCapConnection = nil, nil, nil, nil, nil, nil
+local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastM1AttackTime = 0, 0, 0, 0
 local attackDelay = 0.1
 local tpHeight = 5
-
--- Monitoring variables
-local lastQCheck = 0
-local lastECheck = 0
-local lastTPQCheck = 0
-local lastM1Check = 0
-local qAttempts = 0
-local eAttempts = 0
-local tpqAttempts = 0
-local m1Attempts = 0
 
 -- Main Tab Groups
 local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
 local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
 local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
-local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Auto Buy')
+local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Buy Christmas Gacha')
+local GemCapGroup = Tabs.Main:AddLeftGroupbox('Auto Increase Gem Cap')
 
--- Function to detect if in raid or normal world
-local function isInRaid()
-    return workspace:FindFirstChild("Raid Map") ~= nil
-end
-
--- Function to check if model has NpcMarker (raid mob indicator)
+-- Function to check if model has NpcMarker
 local function hasNpcMarker(model)
-    local success, result = pcall(function()
-        if not model then return false end
-        for _, child in pairs(model:GetDescendants()) do
-            if child:IsA("BillboardGui") and child.Name == "NpcMarker" then
-                return true
-            end
+    for _, child in pairs(model:GetDescendants()) do
+        if child:IsA("BillboardGui") and child.Name == "NpcMarker" then
+            return true
         end
-        return false
-    end)
-    return success and result
+    end
+    return false
 end
 
 -- Function to check if something is a raid mob
 local function isRaidMob(model)
-    local success, result = pcall(function()
-        if not model then return false end
-        if not model:IsA("Model") then return false end
-        if not model:FindFirstChild("Humanoid") then return false end
-        if not model:FindFirstChild("HumanoidRootPart") then return false end
-        if Players:GetPlayerFromCharacter(model) then return false end
-        
-        local humanoid = model:FindFirstChild("Humanoid")
-        if not humanoid then return false end
-        
-        -- Must be alive
-        if humanoid.Health <= 0 then return false end
-        
-        -- Must have NpcMarker (red exclamation mark)
-        if not hasNpcMarker(model) then return false end
-        
-        return true
-    end)
-    return success and result
+    if not model:IsA("Model") then return false end
+    if not model:FindFirstChild("Humanoid") then return false end
+    if not model:FindFirstChild("HumanoidRootPart") then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    local humanoid = model:FindFirstChild("Humanoid")
+    if humanoid.Health <= 0 then return false end
+    if not hasNpcMarker(model) then return false end
+    return true
 end
 
 -- Function to find nearest raid mob
 local function findNearestRaidMob()
-    local success, mob, distance = pcall(function()
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-            return nil, nil
-        end
-        
-        local playerPos = player.Character.HumanoidRootPart.Position
-        local nearestMob = nil
-        local nearestDistance = math.huge
-        
-        -- Search Workspace.Entities for raid mobs
-        if workspace:FindFirstChild("Entities") then
-            for _, model in pairs(workspace.Entities:GetChildren()) do
-                if isRaidMob(model) then
-                    local mobHRP = model:FindFirstChild("HumanoidRootPart")
-                    if mobHRP then
-                        local distance = (playerPos - mobHRP.Position).Magnitude
-                        if distance < nearestDistance then
-                            nearestDistance = distance
-                            nearestMob = model
-                        end
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    local playerPos = player.Character.HumanoidRootPart.Position
+    local nearestMob, nearestDistance = nil, math.huge
+    if workspace:FindFirstChild("Entities") then
+        for _, model in pairs(workspace.Entities:GetChildren()) do
+            if isRaidMob(model) then
+                local mobHRP = model:FindFirstChild("HumanoidRootPart")
+                if mobHRP then
+                    local distance = (playerPos - mobHRP.Position).Magnitude
+                    if distance < nearestDistance then
+                        nearestDistance = distance
+                        nearestMob = model
                     end
                 end
             end
         end
-        
-        return nearestMob, nearestDistance
-    end)
-    
-    if success then
-        return mob, distance
-    else
-        return nil, nil
     end
+    return nearestMob, nearestDistance
 end
 
 -- Function to get a suitable target part for abilities
 local function getTargetPart()
-    local success, result = pcall(function()
-        if isInRaid() then
-            local raidMap = workspace:FindFirstChild("Raid Map")
-            if raidMap then
-                for _, child in pairs(raidMap:GetChildren()) do
-                    if child:IsA("MeshPart") and child.Name:find("newcake") then
-                        return child
-                    end
-                end
-                for _, child in pairs(raidMap:GetChildren()) do
-                    if child:IsA("MeshPart") then
-                        return child
-                    end
-                end
-                if raidMap:FindFirstChild("Model") then
-                    return raidMap.Model
-                end
-            end
-        else
-            local dawnIsland = workspace:FindFirstChild("Map")
-                and workspace.Map:FindFirstChild("Islands")
-                and workspace.Map.Islands:FindFirstChild("Dawn Island")
-            
-            if dawnIsland and dawnIsland:FindFirstChild("Model") then
-                local model = dawnIsland.Model:FindFirstChild("Dawn Island")
-                if model and model:FindFirstChild("Model") then
-                    local meshPart = model.Model:FindFirstChild("Meshes/daniland.2")
-                    if meshPart then
-                        return meshPart
-                    end
-                end
-            end
+    if workspace:FindFirstChild("Raid Map") then
+        for _, child in pairs(workspace["Raid Map"]:GetChildren()) do
+            if child:IsA("MeshPart") and child.Name:find("newcake") then return child end
         end
-        return workspace
-    end)
-    
-    if success and result then
-        return result
+        for _, child in pairs(workspace["Raid Map"]:GetChildren()) do
+            if child:IsA("MeshPart") then return child end
+        end
+        if workspace["Raid Map"]:FindFirstChild("Model") then return workspace["Raid Map"].Model end
     else
-        return workspace
+        local dawnIsland = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Islands") and workspace.Map.Islands:FindFirstChild("Dawn Island")
+        if dawnIsland and dawnIsland:FindFirstChild("Model") then
+            local model = dawnIsland.Model:FindFirstChild("Dawn Island")
+            if model and model:FindFirstChild("Model") then
+                local meshPart = model.Model:FindFirstChild("Meshes/daniland.2")
+                if meshPart then return meshPart end
+            end
+        end
     end
+    return nil
 end
 
--- Function to get Q skill args
-local function getQSkillArgs()
-    local targetPart = getTargetPart()
-    if not targetPart then
-        targetPart = workspace
-    end
-    
-    local cframe = CFrame.new(0, 0, 0)
-    pcall(function()
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            cframe = player.Character.HumanoidRootPart.CFrame
-        end
-    end)
-    
+-- Function to get skill args
+local function getSkillArgs(skill)
+    local targetPart = getTargetPart() or workspace
     return {
         "Sword Style",
-        "Q",
-        cframe,
-        targetPart,
-        5
-    }
-end
-
--- Function to get E skill args
-local function getESkillArgs()
-    local targetPart = getTargetPart()
-    if not targetPart then
-        targetPart = workspace
-    end
-    
-    local cframe = CFrame.new(0, 0, 0)
-    pcall(function()
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            cframe = player.Character.HumanoidRootPart.CFrame
-        end
-    end)
-    
-    return {
-        "Sword Style",
-        "E",
-        cframe,
+        skill,
+        player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.CFrame or CFrame.new(0, 0, 0),
         targetPart,
         5
     }
@@ -240,302 +133,32 @@ end
 
 -- Function to teleport to position
 local function teleportToPosition(targetPosition)
-    pcall(function()
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-            return
-        end
-        
-        local hrp = player.Character.HumanoidRootPart
-        if hrp then
-            hrp.CFrame = CFrame.new(targetPosition)
-        end
-    end)
-end
-
--- Function to check if RemoteEvent exists and is valid
-local function getRemoteEvent()
-    local success, remote = pcall(function()
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        if remotes then
-            local requestAbility = remotes:FindFirstChild("requestAbility")
-            if requestAbility and requestAbility:IsA("RemoteEvent") then
-                return requestAbility
-            end
-        end
-        return nil
-    end)
-    
-    if success and remote then
-        return remote
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
     end
-    return nil
 end
 
--- Function to perform M1 attack (Sword Style)
+-- Function to perform M1 attack
 local function performM1()
-    local success = pcall(function()
-        local targetPart = getTargetPart()
-        if not targetPart then
-            targetPart = workspace
-        end
-        
-        local cframe = CFrame.new(0, 0, 0)
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            cframe = player.Character.HumanoidRootPart.CFrame
-        end
-        
-        local args = {
-            "Sword Style",
-            "MouseButton1",
-            cframe,
-            targetPart,
-            5
-        }
-        
-        local remote = getRemoteEvent()
-        if remote then
-            remote:FireServer(unpack(args))
-            m1Attempts = m1Attempts + 1
-            lastM1Check = tick()
-            return true
-        end
-        return false
-    end)
-    
-    return success
-end
-
--- Function to use Q skill
-local function performQ()
-    local success = pcall(function()
-        local args = getQSkillArgs()
-        local remote = getRemoteEvent()
-        if remote then
-            remote:FireServer(unpack(args))
-            qAttempts = qAttempts + 1
-            lastQCheck = tick()
-            return true
-        end
-        return false
-    end)
-    
-    return success
-end
-
--- Function to use E skill
-local function performE()
-    local success = pcall(function()
-        local args = getESkillArgs()
-        local remote = getRemoteEvent()
-        if remote then
-            remote:FireServer(unpack(args))
-            eAttempts = eAttempts + 1
-            lastECheck = tick()
-            return true
-        end
-        return false
-    end)
-    
-    return success
-end
-
--- Function to buy version 1
-local function buyVersion1()
     pcall(function()
-        local args = { 1 }
-        local gui = player:FindFirstChild("PlayerGui")
-        if gui then
-            local shop = gui:FindFirstChild("NewPresentShop")
-            if shop then
-                local buy = shop:FindFirstChild("buy")
-                if buy then
-                    buy:FireServer(unpack(args))
-                end
-            end
-        end
+        local args = getSkillArgs("MouseButton1")
+        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(args))
     end)
 end
 
--- Function to buy version 3
-local function buyVersion3()
+-- Function to buy gacha version 3
+local function buyGacha3()
     pcall(function()
-        local args = { 3 }
-        local gui = player:FindFirstChild("PlayerGui")
-        if gui then
-            local shop = gui:FindFirstChild("NewPresentShop")
-            if shop then
-                local buy = shop:FindFirstChild("buy")
-                if buy then
-                    buy:FireServer(unpack(args))
-                end
-            end
-        end
+        player:WaitForChild("PlayerGui"):WaitForChild("NewPresentShop"):WaitForChild("buy"):FireServer(3)
     end)
 end
 
--- Function to restart a connection if it's dead
-local function restartConnection(connectionType)
+-- Function to increase gem cap
+local function increaseGemCap()
     pcall(function()
-        if connectionType == "Q" and autoQEnabled then
-            if qConnection then
-                qConnection:Disconnect()
-            end
-            
-            qConnection = RunService.Heartbeat:Connect(function()
-                if not autoQEnabled then return end
-                
-                pcall(function()
-                    local currentTime = tick()
-                    local mob, distance = findNearestRaidMob()
-                    
-                    if mob and mob:FindFirstChild("Humanoid") then
-                        local mobHumanoid = mob.Humanoid
-                        
-                        if mobHumanoid.Health > 0 then
-                            if currentTime - lastQAttackTime >= attackDelay then
-                                performQ()
-                                lastQAttackTime = currentTime
-                            end
-                        end
-                    end
-                end)
-            end)
-            
-        elseif connectionType == "E" and autoEEnabled then
-            if eConnection then
-                eConnection:Disconnect()
-            end
-            
-            eConnection = RunService.Heartbeat:Connect(function()
-                if not autoEEnabled then return end
-                
-                pcall(function()
-                    local currentTime = tick()
-                    local mob, distance = findNearestRaidMob()
-                    
-                    if mob and mob:FindFirstChild("Humanoid") then
-                        local mobHumanoid = mob.Humanoid
-                        
-                        if mobHumanoid.Health > 0 then
-                            if currentTime - lastEAttackTime >= attackDelay then
-                                performE()
-                                lastEAttackTime = currentTime
-                            end
-                        end
-                    end
-                end)
-            end)
-            
-        elseif connectionType == "TPQ" and autoTPQEnabled then
-            if tpqConnection then
-                tpqConnection:Disconnect()
-            end
-            
-            tpqConnection = RunService.Heartbeat:Connect(function()
-                if not autoTPQEnabled then return end
-                
-                pcall(function()
-                    local currentTime = tick()
-                    local mob, distance = findNearestRaidMob()
-                    
-                    if mob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
-                        local mobHumanoid = mob.Humanoid
-                        local mobHRP = mob.HumanoidRootPart
-                        
-                        if mobHumanoid.Health > 0 then
-                            local targetPosition = mobHRP.Position + Vector3.new(0, tpHeight, 0)
-                            teleportToPosition(targetPosition)
-                            
-                            if currentTime - lastTPQAttackTime >= attackDelay then
-                                performQ()
-                                lastTPQAttackTime = currentTime
-                            end
-                        end
-                    end
-                end)
-            end)
-            
-        elseif connectionType == "M1" and autoM1Enabled then
-            if m1Connection then
-                m1Connection:Disconnect()
-            end
-            
-            m1Connection = RunService.Heartbeat:Connect(function()
-                if not autoM1Enabled then return end
-                performM1()
-            end)
-        end
+        player:WaitForChild("PlayerGui"):WaitForChild("NewPoneglyphMerchant"):WaitForChild("Event"):FireServer(10)
     end)
 end
-
--- Monitor connections to ensure they're still running
-local function startMonitor()
-    if monitorConnection then
-        monitorConnection:Disconnect()
-    end
-    
-    monitorConnection = RunService.Heartbeat:Connect(function()
-        pcall(function()
-            local currentTime = tick()
-            
-            -- Check Q connection
-            if autoQEnabled then
-                if not qConnection or not qConnection.Connected then
-                    restartConnection("Q")
-                end
-                -- If no attempts in 5 seconds, restart
-                if currentTime - lastQCheck > 5 and qAttempts == 0 then
-                    restartConnection("Q")
-                    qAttempts = 0
-                end
-            end
-            
-            -- Check E connection
-            if autoEEnabled then
-                if not eConnection or not eConnection.Connected then
-                    restartConnection("E")
-                end
-                if currentTime - lastECheck > 5 and eAttempts == 0 then
-                    restartConnection("E")
-                    eAttempts = 0
-                end
-            end
-            
-            -- Check TPQ connection
-            if autoTPQEnabled then
-                if not tpqConnection or not tpqConnection.Connected then
-                    restartConnection("TPQ")
-                end
-                if currentTime - lastTPQCheck > 5 and tpqAttempts == 0 then
-                    restartConnection("TPQ")
-                    tpqAttempts = 0
-                end
-            end
-            
-            -- Check M1 connection
-            if autoM1Enabled then
-                if not m1Connection or not m1Connection.Connected then
-                    restartConnection("M1")
-                end
-                if currentTime - lastM1Check > 2 and m1Attempts == 0 then
-                    restartConnection("M1")
-                    m1Attempts = 0
-                end
-            end
-            
-            -- Reset attempt counters every second
-            if currentTime % 1 < 0.016 then
-                qAttempts = 0
-                eAttempts = 0
-                tpqAttempts = 0
-                m1Attempts = 0
-            end
-        end)
-    end)
-end
-
--- Start the monitor
-startMonitor()
 
 -- Toggle for Auto Q Skill
 EscanorSkillGroup:AddToggle('AutoQ', {
@@ -544,16 +167,24 @@ EscanorSkillGroup:AddToggle('AutoQ', {
     Tooltip = 'Automatically uses Q skill when raid mob detected',
     Callback = function(value)
         autoQEnabled = value
-        
         if value then
             Library:Notify('✅ Escanor Q enabled!')
-            restartConnection("Q")
+            qConnection = RunService.Heartbeat:Connect(function()
+                if not autoQEnabled then return end
+                local currentTime = tick()
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    if currentTime - lastQAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
+                        end)
+                        lastQAttackTime = currentTime
+                    end
+                end
+            end)
         else
             Library:Notify('❌ Escanor Q disabled.')
-            if qConnection then
-                qConnection:Disconnect()
-                qConnection = nil
-            end
+            if qConnection then qConnection:Disconnect() qConnection = nil end
         end
     end
 })
@@ -567,16 +198,24 @@ EscanorSkillGroup:AddToggle('AutoE', {
     Tooltip = 'Automatically uses E skill when raid mob detected',
     Callback = function(value)
         autoEEnabled = value
-        
         if value then
             Library:Notify('✅ Escanor E enabled!')
-            restartConnection("E")
+            eConnection = RunService.Heartbeat:Connect(function()
+                if not autoEEnabled then return end
+                local currentTime = tick()
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    if currentTime - lastEAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("E")))
+                        end)
+                        lastEAttackTime = currentTime
+                    end
+                end
+            end)
         else
             Library:Notify('❌ Escanor E disabled.')
-            if eConnection then
-                eConnection:Disconnect()
-                eConnection = nil
-            end
+            if eConnection then eConnection:Disconnect() eConnection = nil end
         end
     end
 })
@@ -584,7 +223,6 @@ EscanorSkillGroup:AddToggle('AutoE', {
 EscanorSkillGroup:AddDivider()
 EscanorSkillGroup:AddLabel('Attacks mobs with NpcMarker')
 EscanorSkillGroup:AddLabel('No teleportation')
-EscanorSkillGroup:AddLabel('Auto-restart if stopped')
 EscanorSkillGroup:AddDivider()
 EscanorSkillGroup:AddLabel('🟢 Anti-AFK: Active')
 
@@ -595,16 +233,25 @@ TPFarmGroup:AddToggle('AutoTPQ', {
     Tooltip = 'Teleports to raid mob and uses Q skill',
     Callback = function(value)
         autoTPQEnabled = value
-        
         if value then
             Library:Notify('✅ Auto TP + Q Farm enabled!')
-            restartConnection("TPQ")
+            tpqConnection = RunService.Heartbeat:Connect(function()
+                if not autoTPQEnabled then return end
+                local currentTime = tick()
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
+                    teleportToPosition(mob.HumanoidRootPart.Position + Vector3.new(0, tpHeight, 0))
+                    if currentTime - lastTPQAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
+                        end)
+                        lastTPQAttackTime = currentTime
+                    end
+                end
+            end)
         else
             Library:Notify('❌ Auto TP + Q Farm disabled.')
-            if tpqConnection then
-                tpqConnection:Disconnect()
-                tpqConnection = nil
-            end
+            if tpqConnection then tpqConnection:Disconnect() tpqConnection = nil end
         end
     end
 })
@@ -612,7 +259,6 @@ TPFarmGroup:AddToggle('AutoTPQ', {
 TPFarmGroup:AddDivider()
 TPFarmGroup:AddLabel('Teleports to mob')
 TPFarmGroup:AddLabel('Uses Q skill')
-TPFarmGroup:AddLabel('Auto-restart if stopped')
 
 -- Toggle for Auto M1
 M1Group:AddToggle('AutoM1', {
@@ -621,16 +267,15 @@ M1Group:AddToggle('AutoM1', {
     Tooltip = 'Automatically spams Sword Style M1 at all times',
     Callback = function(value)
         autoM1Enabled = value
-        
         if value then
             Library:Notify('✅ Auto M1 enabled!')
-            restartConnection("M1")
+            m1Connection = RunService.Heartbeat:Connect(function()
+                if not autoM1Enabled then return end
+                performM1()
+            end)
         else
             Library:Notify('❌ Auto M1 disabled.')
-            if m1Connection then
-                m1Connection:Disconnect()
-                m1Connection = nil
-            end
+            if m1Connection then m1Connection:Disconnect() m1Connection = nil end
         end
     end
 })
@@ -638,54 +283,24 @@ M1Group:AddToggle('AutoM1', {
 M1Group:AddDivider()
 M1Group:AddLabel('Uses Sword Style M1')
 M1Group:AddLabel('Spams constantly')
-M1Group:AddLabel('Auto-restart if stopped')
+M1Group:AddLabel('No mob detection needed')
 
--- Toggle for Auto Buy Version 1
-AutoBuyGroup:AddToggle('AutoBuy1', {
-    Text = 'Auto Buy Version 1',
+-- Toggle for Auto Buy Gacha Version 3
+AutoBuyGroup:AddToggle('AutoBuyGacha3', {
+    Text = 'Buy Christmas Gacha',
     Default = false,
-    Tooltip = 'Automatically buys version 1 with no delay',
+    Tooltip = 'Automatically buys Christmas Gacha with no delay',
     Callback = function(value)
-        autoBuy1Enabled = value
-        
+        autoBuyGacha3Enabled = value
         if value then
-            Library:Notify('✅ Auto Buy Version 1 enabled!')
-            buy1Connection = RunService.Heartbeat:Connect(function()
-                if not autoBuy1Enabled then return end
-                buyVersion1()
+            Library:Notify('✅ Auto Buy Christmas Gacha enabled!')
+            buyGacha3Connection = RunService.Heartbeat:Connect(function()
+                if not autoBuyGacha3Enabled then return end
+                buyGacha3()
             end)
         else
-            Library:Notify('❌ Auto Buy Version 1 disabled.')
-            if buy1Connection then
-                buy1Connection:Disconnect()
-                buy1Connection = nil
-            end
-        end
-    end
-})
-
-AutoBuyGroup:AddDivider()
-
--- Toggle for Auto Buy Version 3
-AutoBuyGroup:AddToggle('AutoBuy3', {
-    Text = 'Auto Buy Version 3',
-    Default = false,
-    Tooltip = 'Automatically buys version 3 with no delay',
-    Callback = function(value)
-        autoBuy3Enabled = value
-        
-        if value then
-            Library:Notify('✅ Auto Buy Version 3 enabled!')
-            buy3Connection = RunService.Heartbeat:Connect(function()
-                if not autoBuy3Enabled then return end
-                buyVersion3()
-            end)
-        else
-            Library:Notify('❌ Auto Buy Version 3 disabled.')
-            if buy3Connection then
-                buy3Connection:Disconnect()
-                buy3Connection = nil
-            end
+            Library:Notify('❌ Auto Buy Christmas Gacha disabled.')
+            if buyGacha3Connection then buyGacha3Connection:Disconnect() buyGacha3Connection = nil end
         end
     end
 })
@@ -694,36 +309,45 @@ AutoBuyGroup:AddDivider()
 AutoBuyGroup:AddLabel('Spams buy with no delay')
 AutoBuyGroup:AddLabel('⚠️ Use carefully!')
 
+-- Toggle for Auto Increase Gem Cap
+GemCapGroup:AddToggle('AutoGemCap', {
+    Text = 'Auto Increase Gem Cap',
+    Default = false,
+    Tooltip = 'Automatically increases gem cap with no delay',
+    Callback = function(value)
+        autoGemCapEnabled = value
+        if value then
+            Library:Notify('✅ Auto Increase Gem Cap enabled!')
+            gemCapConnection = RunService.Heartbeat:Connect(function()
+                if not autoGemCapEnabled then return end
+                increaseGemCap()
+            end)
+        else
+            Library:Notify('❌ Auto Increase Gem Cap disabled.')
+            if gemCapConnection then gemCapConnection:Disconnect() gemCapConnection = nil end
+        end
+    end
+})
+
+GemCapGroup:AddDivider()
+GemCapGroup:AddLabel('Increases gem capacity')
+GemCapGroup:AddLabel('Spams with no delay')
+
 -- UI Settings
 Library:SetWatermarkVisibility(true)
 Library:SetWatermark('Auto Skills')
 
 -- Unload cleanup
 local function Unload()
-    if qConnection then 
-        qConnection:Disconnect() 
-    end
-    if eConnection then 
-        eConnection:Disconnect() 
-    end
-    if tpqConnection then 
-        tpqConnection:Disconnect() 
-    end
-    if m1Connection then 
-        m1Connection:Disconnect() 
-    end
-    if buy1Connection then 
-        buy1Connection:Disconnect() 
-    end
-    if buy3Connection then 
-        buy3Connection:Disconnect() 
-    end
-    if monitorConnection then
-        monitorConnection:Disconnect()
-    end
+    if qConnection then qConnection:Disconnect() end
+    if eConnection then eConnection:Disconnect() end
+    if tpqConnection then tpqConnection:Disconnect() end
+    if m1Connection then m1Connection:Disconnect() end
+    if buyGacha3Connection then buyGacha3Connection:Disconnect() end
+    if gemCapConnection then gemCapConnection:Disconnect() end
     Library:Unload()
 end
 
 Library:OnUnload(Unload)
 
-print("✅ Auto Q & E Skill script loaded with monitoring!")
+print("✅ Auto Q & E Skill script loaded!")
