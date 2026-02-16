@@ -1,0 +1,586 @@
+-- Load Linoria Library
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Anti-AFK Setup
+local VirtualUser = game:GetService("VirtualUser")
+player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Create Window
+local Window = Library:CreateWindow({
+    Title = 'Auto Skills',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+-- Create Tab
+local Tabs = {
+    Main = Window:AddTab('Main'),
+}
+
+-- Variables
+local autoQEnabled = false
+local autoEEnabled = false
+local autoTPQEnabled = false
+local autoM1Enabled = false
+local autoBuy1Enabled = false
+local autoBuy3Enabled = false
+local qConnection = nil
+local eConnection = nil
+local tpqConnection = nil
+local m1Connection = nil
+local buy1Connection = nil
+local buy3Connection = nil
+local lastQAttackTime = 0
+local lastEAttackTime = 0
+local lastTPQAttackTime = 0
+local lastM1AttackTime = 0
+local attackDelay = 0.1
+local tpHeight = 5
+
+-- Main Tab Groups
+local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
+local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
+local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
+local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Auto Buy')
+
+-- Function to detect if in raid or normal world
+local function isInRaid()
+    return workspace:FindFirstChild("Raid Map") ~= nil
+end
+
+-- Function to check if model has NpcMarker (raid mob indicator)
+local function hasNpcMarker(model)
+    local success, result = pcall(function()
+        for _, child in pairs(model:GetDescendants()) do
+            if child:IsA("BillboardGui") and child.Name == "NpcMarker" then
+                return true
+            end
+        end
+        return false
+    end)
+    return success and result
+end
+
+-- Function to check if something is a raid mob
+local function isRaidMob(model)
+    local success, result = pcall(function()
+        if not model:IsA("Model") then return false end
+        if not model:FindFirstChild("Humanoid") then return false end
+        if not model:FindFirstChild("HumanoidRootPart") then return false end
+        if Players:GetPlayerFromCharacter(model) then return false end
+        
+        local humanoid = model:FindFirstChild("Humanoid")
+        
+        -- Must be alive
+        if humanoid.Health <= 0 then return false end
+        
+        -- Must have NpcMarker (red exclamation mark)
+        if not hasNpcMarker(model) then return false end
+        
+        return true
+    end)
+    return success and result
+end
+
+-- Function to find nearest raid mob
+local function findNearestRaidMob()
+    local success, result = pcall(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return nil, nil
+        end
+        
+        local playerPos = player.Character.HumanoidRootPart.Position
+        local nearestMob = nil
+        local nearestDistance = math.huge
+        
+        -- Search Workspace.Entities for raid mobs
+        if workspace:FindFirstChild("Entities") then
+            for _, model in pairs(workspace.Entities:GetChildren()) do
+                if isRaidMob(model) then
+                    local mobHRP = model:FindFirstChild("HumanoidRootPart")
+                    if mobHRP then
+                        local distance = (playerPos - mobHRP.Position).Magnitude
+                        if distance < nearestDistance then
+                            nearestDistance = distance
+                            nearestMob = model
+                        end
+                    end
+                end
+            end
+        end
+        
+        return nearestMob, nearestDistance
+    end)
+    
+    if success then
+        return result
+    else
+        return nil, nil
+    end
+end
+
+-- Function to get a suitable target part for abilities
+local function getTargetPart()
+    local success, result = pcall(function()
+        if isInRaid() then
+            for _, child in pairs(workspace["Raid Map"]:GetChildren()) do
+                if child:IsA("MeshPart") and child.Name:find("newcake") then
+                    return child
+                end
+            end
+            for _, child in pairs(workspace["Raid Map"]:GetChildren()) do
+                if child:IsA("MeshPart") then
+                    return child
+                end
+            end
+            if workspace["Raid Map"]:FindFirstChild("Model") then
+                return workspace["Raid Map"].Model
+            end
+        else
+            local dawnIsland = workspace:FindFirstChild("Map")
+                and workspace.Map:FindFirstChild("Islands")
+                and workspace.Map.Islands:FindFirstChild("Dawn Island")
+            
+            if dawnIsland and dawnIsland:FindFirstChild("Model") then
+                local model = dawnIsland.Model:FindFirstChild("Dawn Island")
+                if model and model:FindFirstChild("Model") then
+                    local meshPart = model.Model:FindFirstChild("Meshes/daniland.2")
+                    if meshPart then
+                        return meshPart
+                    end
+                end
+            end
+        end
+        return workspace
+    end)
+    
+    if success and result then
+        return result
+    else
+        return workspace
+    end
+end
+
+-- Function to get Q skill args
+local function getQSkillArgs()
+    local targetPart = getTargetPart()
+    if not targetPart then
+        targetPart = workspace
+    end
+    
+    local cframe = CFrame.new(0, 0, 0)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        cframe = player.Character.HumanoidRootPart.CFrame
+    end
+    
+    return {
+        "Sword Style",
+        "Q",
+        cframe,
+        targetPart,
+        5
+    }
+end
+
+-- Function to get E skill args
+local function getESkillArgs()
+    local targetPart = getTargetPart()
+    if not targetPart then
+        targetPart = workspace
+    end
+    
+    local cframe = CFrame.new(0, 0, 0)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        cframe = player.Character.HumanoidRootPart.CFrame
+    end
+    
+    return {
+        "Sword Style",
+        "E",
+        cframe,
+        targetPart,
+        5
+    }
+end
+
+-- Function to teleport to position
+local function teleportToPosition(targetPosition)
+    pcall(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return
+        end
+        
+        local hrp = player.Character.HumanoidRootPart
+        hrp.CFrame = CFrame.new(targetPosition)
+    end)
+end
+
+-- Function to perform M1 attack (Sword Style)
+local function performM1()
+    pcall(function()
+        local targetPart = getTargetPart()
+        if not targetPart then
+            targetPart = workspace
+        end
+        
+        local cframe = CFrame.new(0, 0, 0)
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            cframe = player.Character.HumanoidRootPart.CFrame
+        end
+        
+        local args = {
+            "Sword Style",
+            "MouseButton1",
+            cframe,
+            targetPart,
+            5
+        }
+        
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if remotes then
+            local requestAbility = remotes:FindFirstChild("requestAbility")
+            if requestAbility then
+                requestAbility:FireServer(unpack(args))
+            end
+        end
+    end)
+end
+
+-- Function to use Q skill
+local function performQ()
+    pcall(function()
+        local args = getQSkillArgs()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if remotes then
+            local requestAbility = remotes:FindFirstChild("requestAbility")
+            if requestAbility then
+                requestAbility:FireServer(unpack(args))
+            end
+        end
+    end)
+end
+
+-- Function to use E skill
+local function performE()
+    pcall(function()
+        local args = getESkillArgs()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if remotes then
+            local requestAbility = remotes:FindFirstChild("requestAbility")
+            if requestAbility then
+                requestAbility:FireServer(unpack(args))
+            end
+        end
+    end)
+end
+
+-- Function to buy version 1
+local function buyVersion1()
+    pcall(function()
+        local args = { 1 }
+        local gui = player:FindFirstChild("PlayerGui")
+        if gui then
+            local shop = gui:FindFirstChild("NewPresentShop")
+            if shop then
+                local buy = shop:FindFirstChild("buy")
+                if buy then
+                    buy:FireServer(unpack(args))
+                end
+            end
+        end
+    end)
+end
+
+-- Function to buy version 3
+local function buyVersion3()
+    pcall(function()
+        local args = { 3 }
+        local gui = player:FindFirstChild("PlayerGui")
+        if gui then
+            local shop = gui:FindFirstChild("NewPresentShop")
+            if shop then
+                local buy = shop:FindFirstChild("buy")
+                if buy then
+                    buy:FireServer(unpack(args))
+                end
+            end
+        end
+    end)
+end
+
+-- Toggle for Auto Q Skill
+EscanorSkillGroup:AddToggle('AutoQ', {
+    Text = 'Escanor Q',
+    Default = false,
+    Tooltip = 'Automatically uses Q skill when raid mob detected',
+    Callback = function(value)
+        autoQEnabled = value
+        
+        if value then
+            Library:Notify('✅ Escanor Q enabled!')
+            qConnection = RunService.Heartbeat:Connect(function()
+                if not autoQEnabled then return end
+                
+                pcall(function()
+                    local currentTime = tick()
+                    local mob, distance = findNearestRaidMob()
+                    
+                    -- Only attack if we found a mob with NpcMarker
+                    if mob and mob:FindFirstChild("Humanoid") then
+                        local mobHumanoid = mob.Humanoid
+                        
+                        -- Check if mob is still alive
+                        if mobHumanoid.Health > 0 then
+                            -- Attack with delay (no teleport)
+                            if currentTime - lastQAttackTime >= attackDelay then
+                                performQ()
+                                lastQAttackTime = currentTime
+                            end
+                        end
+                    end
+                end)
+            end)
+        else
+            Library:Notify('❌ Escanor Q disabled.')
+            if qConnection then
+                qConnection:Disconnect()
+                qConnection = nil
+            end
+        end
+    end
+})
+
+EscanorSkillGroup:AddDivider()
+
+-- Toggle for Auto E Skill
+EscanorSkillGroup:AddToggle('AutoE', {
+    Text = 'Escanor E',
+    Default = false,
+    Tooltip = 'Automatically uses E skill when raid mob detected',
+    Callback = function(value)
+        autoEEnabled = value
+        
+        if value then
+            Library:Notify('✅ Escanor E enabled!')
+            eConnection = RunService.Heartbeat:Connect(function()
+                if not autoEEnabled then return end
+                
+                pcall(function()
+                    local currentTime = tick()
+                    local mob, distance = findNearestRaidMob()
+                    
+                    -- Only attack if we found a mob with NpcMarker
+                    if mob and mob:FindFirstChild("Humanoid") then
+                        local mobHumanoid = mob.Humanoid
+                        
+                        -- Check if mob is still alive
+                        if mobHumanoid.Health > 0 then
+                            -- Attack with delay (no teleport)
+                            if currentTime - lastEAttackTime >= attackDelay then
+                                performE()
+                                lastEAttackTime = currentTime
+                            end
+                        end
+                    end
+                end)
+            end)
+        else
+            Library:Notify('❌ Escanor E disabled.')
+            if eConnection then
+                eConnection:Disconnect()
+                eConnection = nil
+            end
+        end
+    end
+})
+
+EscanorSkillGroup:AddDivider()
+EscanorSkillGroup:AddLabel('Attacks mobs with NpcMarker')
+EscanorSkillGroup:AddLabel('No teleportation')
+EscanorSkillGroup:AddDivider()
+EscanorSkillGroup:AddLabel('🟢 Anti-AFK: Active')
+
+-- Toggle for Auto TP + Q Farm
+TPFarmGroup:AddToggle('AutoTPQ', {
+    Text = 'Auto TP + Q Farm',
+    Default = false,
+    Tooltip = 'Teleports to raid mob and uses Q skill',
+    Callback = function(value)
+        autoTPQEnabled = value
+        
+        if value then
+            Library:Notify('✅ Auto TP + Q Farm enabled!')
+            tpqConnection = RunService.Heartbeat:Connect(function()
+                if not autoTPQEnabled then return end
+                
+                pcall(function()
+                    local currentTime = tick()
+                    local mob, distance = findNearestRaidMob()
+                    
+                    -- Only attack if we found a mob with NpcMarker
+                    if mob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
+                        local mobHumanoid = mob.Humanoid
+                        local mobHRP = mob.HumanoidRootPart
+                        
+                        -- Check if mob is still alive
+                        if mobHumanoid.Health > 0 then
+                            -- Teleport above the mob
+                            local targetPosition = mobHRP.Position + Vector3.new(0, tpHeight, 0)
+                            teleportToPosition(targetPosition)
+                            
+                            -- Use Q skill with delay
+                            if currentTime - lastTPQAttackTime >= attackDelay then
+                                performQ()
+                                lastTPQAttackTime = currentTime
+                            end
+                        end
+                    end
+                end)
+            end)
+        else
+            Library:Notify('❌ Auto TP + Q Farm disabled.')
+            if tpqConnection then
+                tpqConnection:Disconnect()
+                tpqConnection = nil
+            end
+        end
+    end
+})
+
+TPFarmGroup:AddDivider()
+TPFarmGroup:AddLabel('Teleports to mob')
+TPFarmGroup:AddLabel('Uses Q skill')
+
+-- Toggle for Auto M1
+M1Group:AddToggle('AutoM1', {
+    Text = 'Auto M1 (Sword Style)',
+    Default = false,
+    Tooltip = 'Automatically spams Sword Style M1 at all times',
+    Callback = function(value)
+        autoM1Enabled = value
+        
+        if value then
+            Library:Notify('✅ Auto M1 enabled!')
+            m1Connection = RunService.Heartbeat:Connect(function()
+                if not autoM1Enabled then return end
+                
+                -- Spam M1 constantly (no mob detection needed) - wrapped in pcall
+                performM1()
+            end)
+        else
+            Library:Notify('❌ Auto M1 disabled.')
+            if m1Connection then
+                m1Connection:Disconnect()
+                m1Connection = nil
+            end
+        end
+    end
+})
+
+M1Group:AddDivider()
+M1Group:AddLabel('Uses Sword Style M1')
+M1Group:AddLabel('Spams constantly')
+M1Group:AddLabel('No mob detection needed')
+
+-- Toggle for Auto Buy Version 1
+AutoBuyGroup:AddToggle('AutoBuy1', {
+    Text = 'Auto Buy Version 1',
+    Default = false,
+    Tooltip = 'Automatically buys version 1 with no delay',
+    Callback = function(value)
+        autoBuy1Enabled = value
+        
+        if value then
+            Library:Notify('✅ Auto Buy Version 1 enabled!')
+            buy1Connection = RunService.Heartbeat:Connect(function()
+                if not autoBuy1Enabled then return end
+                
+                -- Spam buy version 1 with no delay
+                buyVersion1()
+            end)
+        else
+            Library:Notify('❌ Auto Buy Version 1 disabled.')
+            if buy1Connection then
+                buy1Connection:Disconnect()
+                buy1Connection = nil
+            end
+        end
+    end
+})
+
+AutoBuyGroup:AddDivider()
+
+-- Toggle for Auto Buy Version 3
+AutoBuyGroup:AddToggle('AutoBuy3', {
+    Text = 'Auto Buy Version 3',
+    Default = false,
+    Tooltip = 'Automatically buys version 3 with no delay',
+    Callback = function(value)
+        autoBuy3Enabled = value
+        
+        if value then
+            Library:Notify('✅ Auto Buy Version 3 enabled!')
+            buy3Connection = RunService.Heartbeat:Connect(function()
+                if not autoBuy3Enabled then return end
+                
+                -- Spam buy version 3 with no delay
+                buyVersion3()
+            end)
+        else
+            Library:Notify('❌ Auto Buy Version 3 disabled.')
+            if buy3Connection then
+                buy3Connection:Disconnect()
+                buy3Connection = nil
+            end
+        end
+    end
+})
+
+AutoBuyGroup:AddDivider()
+AutoBuyGroup:AddLabel('Spams buy with no delay')
+AutoBuyGroup:AddLabel('⚠️ Use carefully!')
+
+-- UI Settings
+Library:SetWatermarkVisibility(true)
+Library:SetWatermark('Auto Skills')
+
+-- Unload cleanup
+local function Unload()
+    if qConnection then 
+        qConnection:Disconnect() 
+    end
+    if eConnection then 
+        eConnection:Disconnect() 
+    end
+    if tpqConnection then 
+        tpqConnection:Disconnect() 
+    end
+    if m1Connection then 
+        m1Connection:Disconnect() 
+    end
+    if buy1Connection then 
+        buy1Connection:Disconnect() 
+    end
+    if buy3Connection then 
+        buy3Connection:Disconnect() 
+    end
+    Library:Unload()
+end
+
+Library:OnUnload(Unload)
+
+print("✅ Auto Q & E Skill script loaded!")
