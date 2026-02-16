@@ -40,13 +40,15 @@ local autoSmartGachaEnabled = false
 local autoSmartGemCapEnabled = false
 local autoDragonSummonEnabled = false
 local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection = nil, nil, nil, nil, nil, nil, nil
-local lastQAttackTime, lastEAttackTime, lastTPQAttackTime = 0, 0, 0
+local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastDragonSummonTime = 0, 0, 0, 0
 local attackDelay = 0.1
+local dragonSummonDelay = 1
 local tpHeight = 5
 
 -- Toggle references
 local GachaToggle = nil
 local GemCapToggle = nil
+local DragonToggle = nil
 
 -- Main Tab Groups
 local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
@@ -77,6 +79,25 @@ local function getPoneglyphCurrency()
         end
     end)
     return currency
+end
+
+-- Function to check if player has Fire Dragon Key
+local function hasFireDragonKey()
+    local hasKey = false
+    pcall(function()
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack and backpack:FindFirstChild("Fire Dragon Key") then
+            hasKey = true
+            return
+        end
+        
+        -- Also check character (if equipped)
+        local character = player.Character
+        if character and character:FindFirstChild("Fire Dragon Key") then
+            hasKey = true
+        end
+    end)
+    return hasKey
 end
 
 -- Function to check if model has NpcMarker
@@ -207,15 +228,9 @@ end
 local function smartIncreaseGemCap()
     pcall(function()
         local poneglyphs = getPoneglyphCurrency()
-        local amount = 1
         
-        if poneglyphs >= 10 then
-            amount = 10
-        elseif poneglyphs >= 5 then
-            amount = 5
-        elseif poneglyphs >= 1 then
-            amount = 1
-        else
+        -- Stop at 1 poneglyph since it's bugged
+        if poneglyphs <= 1 then
             -- Not enough currency, disable
             autoSmartGemCapEnabled = false
             if smartGemCapConnection then
@@ -225,8 +240,18 @@ local function smartIncreaseGemCap()
             if GemCapToggle then
                 GemCapToggle:SetValue(false)
             end
-            Library:Notify('❌ Gem Cap disabled - Not enough poneglyphs!')
+            Library:Notify('❌ Gem Cap disabled - Down to last poneglyph!')
             return
+        end
+        
+        local amount = 1
+        
+        if poneglyphs >= 10 then
+            amount = 10
+        elseif poneglyphs >= 5 then
+            amount = 5
+        else
+            amount = 1
         end
         
         player:WaitForChild("PlayerGui"):WaitForChild("NewPoneglyphMerchant"):WaitForChild("Event"):FireServer(amount)
@@ -236,8 +261,43 @@ end
 -- Function to summon dragon
 local function summonDragon()
     pcall(function()
+        local currentTime = tick()
+        
+        -- Check delay
+        if currentTime - lastDragonSummonTime < dragonSummonDelay then
+            return
+        end
+        
+        -- Check if player has Fire Dragon Key
+        if not hasFireDragonKey() then
+            -- No keys left, disable
+            autoDragonSummonEnabled = false
+            if dragonSummonConnection then
+                dragonSummonConnection:Disconnect()
+                dragonSummonConnection = nil
+            end
+            if DragonToggle then
+                DragonToggle:SetValue(false)
+            end
+            
+            -- Close any open Dragon Summoner GUI
+            local gui = player:FindFirstChild("PlayerGui")
+            if gui then
+                local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
+                if dragonSummoner then
+                    dragonSummoner:Destroy()
+                end
+            end
+            
+            Library:Notify('❌ Dragon Summon disabled - Out of Fire Dragon Keys!')
+            return
+        end
+        
+        -- Open GUI
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
         wait(0.3)
+        
+        -- Confirm summon
         local gui = player:WaitForChild("PlayerGui")
         local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
         if dragonSummoner then
@@ -248,6 +308,8 @@ local function summonDragon()
                 dragonSummoner:Destroy()
             end
         end
+        
+        lastDragonSummonTime = currentTime
     end)
 end
 
@@ -402,7 +464,7 @@ ShopsGroup:AddDivider()
 GemCapToggle = ShopsGroup:AddToggle('AutoSmartGemCap', {
     Text = 'Smart Gem Cap Increase',
     Default = false,
-    Tooltip = 'Auto-detects Poneglyphs and buys the best option',
+    Tooltip = 'Auto-detects Poneglyphs and buys the best option (stops at 1)',
     Callback = function(value)
         autoSmartGemCapEnabled = value
         if value then
@@ -420,10 +482,10 @@ GemCapToggle = ShopsGroup:AddToggle('AutoSmartGemCap', {
 })
 
 -- Toggle for Auto Dragon Summon
-DragonSummonGroup:AddToggle('AutoDragonSummon', {
+DragonToggle = DragonSummonGroup:AddToggle('AutoDragonSummon', {
     Text = 'Auto Dragon Summon',
     Default = false,
-    Tooltip = 'Automatically summons dragon with no delay',
+    Tooltip = 'Auto-summons dragon (1s delay, stops when out of keys)',
     Callback = function(value)
         autoDragonSummonEnabled = value
         if value then
@@ -440,8 +502,8 @@ DragonSummonGroup:AddToggle('AutoDragonSummon', {
 })
 
 DragonSummonGroup:AddDivider()
-DragonSummonGroup:AddLabel('Opens, confirms & closes GUI')
-DragonSummonGroup:AddLabel('Requires Fire Dragon Key')
+DragonSummonGroup:AddLabel('1 second delay per summon')
+DragonSummonGroup:AddLabel('Auto-stops when out of keys')
 
 -- UI Settings
 Library:SetWatermarkVisibility(false)
