@@ -57,8 +57,7 @@ local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
 local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
 local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
 local ShopsGroup = Tabs.Main:AddLeftGroupbox('Shops')
-local DragonSummonGroup = Tabs.Main:AddLeftGroupbox('Auto Dragon Summon')
-local DragonKillerGroup = Tabs.Main:AddRightGroupbox('Fire Dragon Killer')
+local FireDragonGroup = Tabs.Main:AddLeftGroupbox('Fire Dragon')
 
 -- Function to get Present currency
 local function getPresentCurrency()
@@ -290,13 +289,20 @@ local function smartIncreaseGemCap()
     end)
 end
 
--- Function to summon dragon
+-- Function to summon dragon (without GUI)
 local function summonDragon()
     pcall(function()
         local currentTime = tick()
         
         -- Check delay
         if currentTime - lastDragonSummonTime < dragonSummonDelay then
+            return
+        end
+        
+        -- Check if dragon is already spawned
+        local existingDragon = findFireDragon()
+        if existingDragon then
+            -- Dragon already exists, don't summon
             return
         end
         
@@ -312,24 +318,15 @@ local function summonDragon()
                 DragonToggle:SetValue(false)
             end
             
-            -- Close any open Dragon Summoner GUI
-            local gui = player:FindFirstChild("PlayerGui")
-            if gui then
-                local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
-                if dragonSummoner then
-                    dragonSummoner:Destroy()
-                end
-            end
-            
             Library:Notify('❌ Dragon Summon disabled - Out of Fire Dragon Keys!')
             return
         end
         
-        -- Open GUI
+        -- Summon dragon directly without GUI
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
         wait(0.3)
         
-        -- Confirm summon
+        -- Fire the summon event
         local gui = player:WaitForChild("PlayerGui")
         local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
         if dragonSummoner then
@@ -337,6 +334,7 @@ local function summonDragon()
             if eventRemote then
                 eventRemote:FireServer()
                 wait(0.1)
+                -- Close GUI immediately
                 dragonSummoner:Destroy()
             end
         end
@@ -514,10 +512,10 @@ GemCapToggle = ShopsGroup:AddToggle('AutoSmartGemCap', {
 })
 
 -- Toggle for Auto Dragon Summon
-DragonToggle = DragonSummonGroup:AddToggle('AutoDragonSummon', {
-    Text = 'Auto Dragon Summon',
+DragonToggle = FireDragonGroup:AddToggle('AutoDragonSummon', {
+    Text = 'Auto Summon Dragon',
     Default = false,
-    Tooltip = 'Auto-summons dragon (1s delay, stops when out of keys)',
+    Tooltip = 'Auto-summons if not already spawned',
     Callback = function(value)
         autoDragonSummonEnabled = value
         if value then
@@ -533,12 +531,10 @@ DragonToggle = DragonSummonGroup:AddToggle('AutoDragonSummon', {
     end
 })
 
-DragonSummonGroup:AddDivider()
-DragonSummonGroup:AddLabel('1 second delay per summon')
-DragonSummonGroup:AddLabel('Auto-stops when out of keys')
+FireDragonGroup:AddDivider()
 
 -- Toggle for Fire Dragon Q
-DragonKillerGroup:AddToggle('AutoDragonQ', {
+FireDragonGroup:AddToggle('AutoDragonQ', {
     Text = 'Dragon Killer Q',
     Default = false,
     Tooltip = 'Uses Q skill on Awakened Beast King',
@@ -566,10 +562,10 @@ DragonKillerGroup:AddToggle('AutoDragonQ', {
     end
 })
 
-DragonKillerGroup:AddDivider()
+FireDragonGroup:AddDivider()
 
 -- Toggle for Fire Dragon E
-DragonKillerGroup:AddToggle('AutoDragonE', {
+FireDragonGroup:AddToggle('AutoDragonE', {
     Text = 'Dragon Killer E',
     Default = false,
     Tooltip = 'Uses E skill on Awakened Beast King',
@@ -597,9 +593,9 @@ DragonKillerGroup:AddToggle('AutoDragonE', {
     end
 })
 
-DragonKillerGroup:AddDivider()
-DragonKillerGroup:AddLabel('Targets Awakened Beast King')
-DragonKillerGroup:AddLabel('5 billion HP boss')
+FireDragonGroup:AddDivider()
+FireDragonGroup:AddLabel('Only summons if not spawned')
+FireDragonGroup:AddLabel('Awakened Beast King')
 
 -- UI Settings
 Library:SetWatermarkVisibility(false)
