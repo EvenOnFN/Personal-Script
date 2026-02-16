@@ -39,8 +39,9 @@ local autoM1Enabled = false
 local autoSmartGachaEnabled = false
 local autoSmartGemCapEnabled = false
 local autoDragonSummonEnabled = false
-local autoDragonKillerEnabled = false
-local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection, dragonKillerConnection = nil, nil, nil, nil, nil, nil, nil, nil
+local autoDragonQEnabled = false
+local autoDragonEEnabled = false
+local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection, dragonQConnection, dragonEConnection = nil, nil, nil, nil, nil, nil, nil, nil, nil
 local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastDragonSummonTime, lastDragonQTime, lastDragonETime = 0, 0, 0, 0, 0, 0
 local attackDelay = 0.1
 local dragonSummonDelay = 1
@@ -133,9 +134,8 @@ local function isFireDragon(model)
     local humanoid = model:FindFirstChild("Humanoid")
     if humanoid.Health <= 0 then return false end
     
-    -- Check if name contains "Volcanic Blast Breath Boss" or similar
-    local name = model.Name
-    if name:find("Volcanic") or name:find("Blast") or name:find("Breath") or name:find("Boss") then
+    -- Check if name is "Awakened Beast King"
+    if model.Name == "Awakened Beast King" then
         return true
     end
     
@@ -541,13 +541,13 @@ DragonSummonGroup:AddLabel('Auto-stops when out of keys')
 DragonKillerGroup:AddToggle('AutoDragonQ', {
     Text = 'Dragon Killer Q',
     Default = false,
-    Tooltip = 'Uses Q skill on Fire Dragon boss',
+    Tooltip = 'Uses Q skill on Awakened Beast King',
     Callback = function(value)
-        autoDragonKillerEnabled = value
+        autoDragonQEnabled = value
         if value then
             Library:Notify('✅ Dragon Killer Q enabled!')
-            dragonKillerConnection = RunService.Heartbeat:Connect(function()
-                if not autoDragonKillerEnabled then return end
+            dragonQConnection = RunService.Heartbeat:Connect(function()
+                if not autoDragonQEnabled then return end
                 local dragon = findFireDragon()
                 if dragon and dragon:FindFirstChild("Humanoid") and dragon.Humanoid.Health > 0 then
                     local currentTime = tick()
@@ -561,7 +561,7 @@ DragonKillerGroup:AddToggle('AutoDragonQ', {
             end)
         else
             Library:Notify('❌ Dragon Killer Q disabled.')
-            if dragonKillerConnection then dragonKillerConnection:Disconnect() dragonKillerConnection = nil end
+            if dragonQConnection then dragonQConnection:Disconnect() dragonQConnection = nil end
         end
     end
 })
@@ -572,12 +572,13 @@ DragonKillerGroup:AddDivider()
 DragonKillerGroup:AddToggle('AutoDragonE', {
     Text = 'Dragon Killer E',
     Default = false,
-    Tooltip = 'Uses E skill on Fire Dragon boss',
+    Tooltip = 'Uses E skill on Awakened Beast King',
     Callback = function(value)
-        local dragonEConnection = nil
+        autoDragonEEnabled = value
         if value then
             Library:Notify('✅ Dragon Killer E enabled!')
             dragonEConnection = RunService.Heartbeat:Connect(function()
+                if not autoDragonEEnabled then return end
                 local dragon = findFireDragon()
                 if dragon and dragon:FindFirstChild("Humanoid") and dragon.Humanoid.Health > 0 then
                     local currentTime = tick()
@@ -597,8 +598,8 @@ DragonKillerGroup:AddToggle('AutoDragonE', {
 })
 
 DragonKillerGroup:AddDivider()
-DragonKillerGroup:AddLabel('Targets Fire Dragon boss')
-DragonKillerGroup:AddLabel('No NpcMarker needed')
+DragonKillerGroup:AddLabel('Targets Awakened Beast King')
+DragonKillerGroup:AddLabel('5 billion HP boss')
 
 -- UI Settings
 Library:SetWatermarkVisibility(false)
@@ -612,7 +613,8 @@ local function Unload()
     if smartGachaConnection then smartGachaConnection:Disconnect() end
     if smartGemCapConnection then smartGemCapConnection:Disconnect() end
     if dragonSummonConnection then dragonSummonConnection:Disconnect() end
-    if dragonKillerConnection then dragonKillerConnection:Disconnect() end
+    if dragonQConnection then dragonQConnection:Disconnect() end
+    if dragonEConnection then dragonEConnection:Disconnect() end
     Library:Unload()
 end
 
