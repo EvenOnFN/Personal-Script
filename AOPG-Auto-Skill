@@ -38,8 +38,9 @@ local autoTPQEnabled = false
 local autoM1Enabled = false
 local autoBuyGacha3Enabled = false
 local autoGemCapEnabled = false
-local qConnection, eConnection, tpqConnection, m1Connection, buyGacha3Connection, gemCapConnection = nil, nil, nil, nil, nil, nil
-local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastM1AttackTime = 0, 0, 0, 0
+local autoDragonSummonEnabled = false
+local qConnection, eConnection, tpqConnection, m1Connection, buyGacha3Connection, gemCapConnection, dragonSummonConnection = nil, nil, nil, nil, nil, nil, nil
+local lastQAttackTime, lastEAttackTime, lastTPQAttackTime = 0, 0, 0
 local attackDelay = 0.1
 local tpHeight = 5
 
@@ -49,6 +50,7 @@ local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
 local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
 local AutoBuyGroup = Tabs.Main:AddLeftGroupbox('Buy Christmas Gacha')
 local GemCapGroup = Tabs.Main:AddLeftGroupbox('Auto Increase Gem Cap')
+local DragonSummonGroup = Tabs.Main:AddRightGroupbox('Auto Dragon Summon')
 
 -- Function to check if model has NpcMarker
 local function hasNpcMarker(model)
@@ -93,7 +95,7 @@ local function findNearestRaidMob()
             end
         end
     end
-    return nearestMob, nearestDistance
+    return nearestMob
 end
 
 -- Function to get a suitable target part for abilities
@@ -116,17 +118,16 @@ local function getTargetPart()
             end
         end
     end
-    return nil
+    return workspace
 end
 
 -- Function to get skill args
 local function getSkillArgs(skill)
-    local targetPart = getTargetPart() or workspace
     return {
         "Sword Style",
         skill,
         player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.CFrame or CFrame.new(0, 0, 0),
-        targetPart,
+        getTargetPart(),
         5
     }
 end
@@ -141,8 +142,7 @@ end
 -- Function to perform M1 attack
 local function performM1()
     pcall(function()
-        local args = getSkillArgs("MouseButton1")
-        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(args))
+        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("MouseButton1")))
     end)
 end
 
@@ -160,6 +160,28 @@ local function increaseGemCap()
     end)
 end
 
+-- Function to summon dragon
+local function summonDragon()
+    pcall(function()
+        -- First, open the Dragon Summoner GUI
+        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
+        wait(0.3)
+        
+        -- Then click confirm
+        local gui = player:WaitForChild("PlayerGui")
+        local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
+        if dragonSummoner then
+            local eventRemote = dragonSummoner:FindFirstChild("Event")
+            if eventRemote then
+                eventRemote:FireServer()
+                wait(0.1)
+                -- Close the GUI
+                dragonSummoner:Destroy()
+            end
+        end
+    end)
+end
+
 -- Toggle for Auto Q Skill
 EscanorSkillGroup:AddToggle('AutoQ', {
     Text = 'Escanor Q',
@@ -171,9 +193,9 @@ EscanorSkillGroup:AddToggle('AutoQ', {
             Library:Notify('✅ Escanor Q enabled!')
             qConnection = RunService.Heartbeat:Connect(function()
                 if not autoQEnabled then return end
-                local currentTime = tick()
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
                     if currentTime - lastQAttackTime >= attackDelay then
                         pcall(function()
                             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
@@ -202,9 +224,9 @@ EscanorSkillGroup:AddToggle('AutoE', {
             Library:Notify('✅ Escanor E enabled!')
             eConnection = RunService.Heartbeat:Connect(function()
                 if not autoEEnabled then return end
-                local currentTime = tick()
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
                     if currentTime - lastEAttackTime >= attackDelay then
                         pcall(function()
                             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("E")))
@@ -237,10 +259,10 @@ TPFarmGroup:AddToggle('AutoTPQ', {
             Library:Notify('✅ Auto TP + Q Farm enabled!')
             tpqConnection = RunService.Heartbeat:Connect(function()
                 if not autoTPQEnabled then return end
-                local currentTime = tick()
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
                     teleportToPosition(mob.HumanoidRootPart.Position + Vector3.new(0, tpHeight, 0))
+                    local currentTime = tick()
                     if currentTime - lastTPQAttackTime >= attackDelay then
                         pcall(function()
                             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
@@ -283,9 +305,8 @@ M1Group:AddToggle('AutoM1', {
 M1Group:AddDivider()
 M1Group:AddLabel('Uses Sword Style M1')
 M1Group:AddLabel('Spams constantly')
-M1Group:AddLabel('No mob detection needed')
 
--- Toggle for Auto Buy Gacha Version 3
+-- Toggle for Auto Buy Gacha
 AutoBuyGroup:AddToggle('AutoBuyGacha3', {
     Text = 'Buy Christmas Gacha',
     Default = false,
@@ -333,6 +354,30 @@ GemCapGroup:AddDivider()
 GemCapGroup:AddLabel('Increases gem capacity')
 GemCapGroup:AddLabel('Spams with no delay')
 
+-- Toggle for Auto Dragon Summon
+DragonSummonGroup:AddToggle('AutoDragonSummon', {
+    Text = 'Auto Dragon Summon',
+    Default = false,
+    Tooltip = 'Automatically summons dragon with no delay',
+    Callback = function(value)
+        autoDragonSummonEnabled = value
+        if value then
+            Library:Notify('✅ Auto Dragon Summon enabled!')
+            dragonSummonConnection = RunService.Heartbeat:Connect(function()
+                if not autoDragonSummonEnabled then return end
+                summonDragon()
+            end)
+        else
+            Library:Notify('❌ Auto Dragon Summon disabled.')
+            if dragonSummonConnection then dragonSummonConnection:Disconnect() dragonSummonConnection = nil end
+        end
+    end
+})
+
+DragonSummonGroup:AddDivider()
+DragonSummonGroup:AddLabel('Opens, confirms & closes GUI')
+DragonSummonGroup:AddLabel('Requires Fire Dragon Key')
+
 -- UI Settings
 Library:SetWatermarkVisibility(true)
 Library:SetWatermark('Auto Skills')
@@ -345,6 +390,7 @@ local function Unload()
     if m1Connection then m1Connection:Disconnect() end
     if buyGacha3Connection then buyGacha3Connection:Disconnect() end
     if gemCapConnection then gemCapConnection:Disconnect() end
+    if dragonSummonConnection then dragonSummonConnection:Disconnect() end
     Library:Unload()
 end
 
