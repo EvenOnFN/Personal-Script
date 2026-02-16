@@ -39,8 +39,9 @@ local autoM1Enabled = false
 local autoSmartGachaEnabled = false
 local autoSmartGemCapEnabled = false
 local autoDragonSummonEnabled = false
-local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection = nil, nil, nil, nil, nil, nil, nil
-local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastDragonSummonTime = 0, 0, 0, 0
+local autoDragonKillerEnabled = false
+local qConnection, eConnection, tpqConnection, m1Connection, smartGachaConnection, smartGemCapConnection, dragonSummonConnection, dragonKillerConnection = nil, nil, nil, nil, nil, nil, nil, nil
+local lastQAttackTime, lastEAttackTime, lastTPQAttackTime, lastDragonSummonTime, lastDragonQTime, lastDragonETime = 0, 0, 0, 0, 0, 0
 local attackDelay = 0.1
 local dragonSummonDelay = 1
 local tpHeight = 5
@@ -55,7 +56,8 @@ local EscanorSkillGroup = Tabs.Main:AddLeftGroupbox('Escanor')
 local TPFarmGroup = Tabs.Main:AddRightGroupbox('TP Farm')
 local M1Group = Tabs.Main:AddRightGroupbox('Auto M1')
 local ShopsGroup = Tabs.Main:AddLeftGroupbox('Shops')
-local DragonSummonGroup = Tabs.Main:AddRightGroupbox('Auto Dragon Summon')
+local DragonSummonGroup = Tabs.Main:AddLeftGroupbox('Auto Dragon Summon')
+local DragonKillerGroup = Tabs.Main:AddRightGroupbox('Fire Dragon Killer')
 
 -- Function to get Present currency
 local function getPresentCurrency()
@@ -120,6 +122,36 @@ local function isRaidMob(model)
     if humanoid.Health <= 0 then return false end
     if not hasNpcMarker(model) then return false end
     return true
+end
+
+-- Function to check if something is the Fire Dragon boss
+local function isFireDragon(model)
+    if not model:IsA("Model") then return false end
+    if not model:FindFirstChild("Humanoid") then return false end
+    if not model:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local humanoid = model:FindFirstChild("Humanoid")
+    if humanoid.Health <= 0 then return false end
+    
+    -- Check if name contains "Volcanic Blast Breath Boss" or similar
+    local name = model.Name
+    if name:find("Volcanic") or name:find("Blast") or name:find("Breath") or name:find("Boss") then
+        return true
+    end
+    
+    return false
+end
+
+-- Function to find Fire Dragon
+local function findFireDragon()
+    if workspace:FindFirstChild("Entities") then
+        for _, model in pairs(workspace.Entities:GetChildren()) do
+            if isFireDragon(model) then
+                return model
+            end
+        end
+    end
+    return nil
 end
 
 -- Function to find nearest raid mob
@@ -505,6 +537,69 @@ DragonSummonGroup:AddDivider()
 DragonSummonGroup:AddLabel('1 second delay per summon')
 DragonSummonGroup:AddLabel('Auto-stops when out of keys')
 
+-- Toggle for Fire Dragon Q
+DragonKillerGroup:AddToggle('AutoDragonQ', {
+    Text = 'Dragon Killer Q',
+    Default = false,
+    Tooltip = 'Uses Q skill on Fire Dragon boss',
+    Callback = function(value)
+        autoDragonKillerEnabled = value
+        if value then
+            Library:Notify('✅ Dragon Killer Q enabled!')
+            dragonKillerConnection = RunService.Heartbeat:Connect(function()
+                if not autoDragonKillerEnabled then return end
+                local dragon = findFireDragon()
+                if dragon and dragon:FindFirstChild("Humanoid") and dragon.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastDragonQTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
+                        end)
+                        lastDragonQTime = currentTime
+                    end
+                end
+            end)
+        else
+            Library:Notify('❌ Dragon Killer Q disabled.')
+            if dragonKillerConnection then dragonKillerConnection:Disconnect() dragonKillerConnection = nil end
+        end
+    end
+})
+
+DragonKillerGroup:AddDivider()
+
+-- Toggle for Fire Dragon E
+DragonKillerGroup:AddToggle('AutoDragonE', {
+    Text = 'Dragon Killer E',
+    Default = false,
+    Tooltip = 'Uses E skill on Fire Dragon boss',
+    Callback = function(value)
+        local dragonEConnection = nil
+        if value then
+            Library:Notify('✅ Dragon Killer E enabled!')
+            dragonEConnection = RunService.Heartbeat:Connect(function()
+                local dragon = findFireDragon()
+                if dragon and dragon:FindFirstChild("Humanoid") and dragon.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastDragonETime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("E")))
+                        end)
+                        lastDragonETime = currentTime
+                    end
+                end
+            end)
+        else
+            Library:Notify('❌ Dragon Killer E disabled.')
+            if dragonEConnection then dragonEConnection:Disconnect() dragonEConnection = nil end
+        end
+    end
+})
+
+DragonKillerGroup:AddDivider()
+DragonKillerGroup:AddLabel('Targets Fire Dragon boss')
+DragonKillerGroup:AddLabel('No NpcMarker needed')
+
 -- UI Settings
 Library:SetWatermarkVisibility(false)
 
@@ -517,6 +612,7 @@ local function Unload()
     if smartGachaConnection then smartGachaConnection:Disconnect() end
     if smartGemCapConnection then smartGemCapConnection:Disconnect() end
     if dragonSummonConnection then dragonSummonConnection:Disconnect() end
+    if dragonKillerConnection then dragonKillerConnection:Disconnect() end
     Library:Unload()
 end
 
