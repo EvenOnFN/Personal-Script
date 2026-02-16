@@ -105,7 +105,7 @@ local dragonSummonConnection, dragonQConnection, dragonEConnection = nil, nil, n
 local lastDragonSummonTime = 0
 local lastDragonQTime = 0
 local lastDragonETime = 0
-local dragonSummonDelay = 5
+local dragonSummonDelay = 8  -- Changed from 5 to 8 seconds
 local DragonToggle = nil
 
 -- ============================================================================
@@ -398,7 +398,7 @@ local function summonDragon()
     pcall(function()
         local currentTime = tick()
         
-        -- Check cooldown to prevent spam
+        -- Check cooldown to prevent spam (8 seconds)
         if currentTime - lastDragonSummonTime < dragonSummonDelay then
             return
         end
@@ -825,7 +825,7 @@ local DragonEToggle = DragonTab:CreateToggle({
     end
 })
 
-DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire Dragon if not already spawned. Uses Fire Dragon Keys from your backpack. 5 second cooldown between summons to prevent key waste. Target: Awakened Beast King (5B HP)"})
+DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire Dragon if not already spawned. Uses Fire Dragon Keys from your backpack. 8 second cooldown between summons to prevent key waste. Target: Awakened Beast King (5B HP)"})
 
 -- ============================================================================
 -- SECTION 18: SCRIPT LOADED NOTIFICATION
@@ -834,4 +834,5 @@ DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire D
 print("✅ Auto Skills Script Loaded Successfully!")
 print("📱 UI: Rayfield (Modern & Smooth)")
 print("🔧 Features: Escanor Skills | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
+print("🐉 Dragon Summon Cooldown: 8 seconds")
 print("🌐 GitHub: EvenOnFN/Personal-Script")
