@@ -1,20 +1,4 @@
--- ============================================================================
--- AUTO SKILLS SCRIPT - A ONE PIECE GAME
--- ============================================================================
--- Author: EvenOnFN
--- UI Library: Rayfield (Modern & Clean)
--- Features: Auto Skills, Auto TP Farm, Auto M1, Smart Shops, Fire Dragon Auto
--- ============================================================================
-
--- ============================================================================
--- SECTION 1: RAYFIELD UI LIBRARY SETUP
--- ============================================================================
-
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
--- ============================================================================
--- SECTION 2: SERVICES & VARIABLES
--- ============================================================================
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,26 +6,18 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local player = Players.LocalPlayer
 
--- ============================================================================
--- SECTION 3: ANTI-AFK SYSTEM
--- ============================================================================
-
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- ============================================================================
--- SECTION 4: RAYFIELD WINDOW SETUP
--- ============================================================================
-
 local Window = Rayfield:CreateWindow({
-   Name = "Auto Skills | A One Piece Game",
-   LoadingTitle = "Loading Auto Skills...",
-   LoadingSubtitle = "by EvenOnFN",
+   Name = "Fate Hub | A One Piece Game",
+   LoadingTitle = "Fate Hub Loading...",
+   LoadingSubtitle = "by Fate",
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = "AOPGAutoSkills",
+      FolderName = "FateHub",
       FileName = "Config"
    },
    Discord = {
@@ -51,7 +27,7 @@ local Window = Rayfield:CreateWindow({
    },
    KeySystem = false,
    KeySettings = {
-      Title = "Auto Skills",
+      Title = "Fate Hub",
       Subtitle = "Key System",
       Note = "No Key Required",
       FileName = "Key",
@@ -61,43 +37,37 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
--- ============================================================================
--- SECTION 5: CREATE TABS
--- ============================================================================
-
-local EscanorTab = Window:CreateTab("⚔️ Escanor Skills", 4483362458)
+local AutoSkillsTab = Window:CreateTab("⚔️ Auto Skills", 4483362458)
 local M1Tab = Window:CreateTab("👊 Auto M1", 4483362458)
 local TPFarmTab = Window:CreateTab("🌀 TP Farm", 4483362458)
 local ShopsTab = Window:CreateTab("🛒 Shops", 4483362458)
 local DragonTab = Window:CreateTab("🐉 Fire Dragon", 4483362458)
 
--- ============================================================================
--- SECTION 6: GLOBAL VARIABLES & STATE
--- ============================================================================
-
--- Auto Ability Variables
 local autoQEnabled = false
 local autoEEnabled = false
+local autoFEnabled = false
+local autoGEnabled = false
+local autoREnabled = false
 local autoM1Enabled = false
-local qConnection, eConnection, m1Connection = nil, nil, nil
+local qConnection, eConnection, fConnection, gConnection, rConnection, m1Connection = nil, nil, nil, nil, nil, nil
 local lastQAttackTime = 0
 local lastEAttackTime = 0
+local lastFAttackTime = 0
+local lastGAttackTime = 0
+local lastRAttackTime = 0
 local attackDelay = 0.1
 
--- Auto TP Farm Variables
 local autoTPQEnabled = false
 local tpqConnection = nil
 local lastTPQAttackTime = 0
 local tpHeight = 5
 
--- Shop Variables
 local autoSmartGachaEnabled = false
 local autoSmartGemCapEnabled = false
 local smartGachaConnection, smartGemCapConnection = nil, nil
 local GachaToggle = nil
 local GemCapToggle = nil
 
--- Fire Dragon Variables
 local autoDragonSummonEnabled = false
 local autoDragonQEnabled = false
 local autoDragonEEnabled = false
@@ -105,14 +75,9 @@ local dragonSummonConnection, dragonQConnection, dragonEConnection = nil, nil, n
 local lastDragonSummonTime = 0
 local lastDragonQTime = 0
 local lastDragonETime = 0
-local dragonSummonDelay = 8  -- Changed from 5 to 8 seconds
+local dragonSummonDelay = 15
 local DragonToggle = nil
 
--- ============================================================================
--- SECTION 7: UTILITY FUNCTIONS - CURRENCY & ITEMS
--- ============================================================================
-
--- Get Present currency from player stats
 local function getPresentCurrency()
     local currency = 0
     pcall(function()
@@ -124,7 +89,6 @@ local function getPresentCurrency()
     return currency
 end
 
--- Get Poneglyph currency from player stats
 local function getPoneglyphCurrency()
     local currency = 0
     pcall(function()
@@ -136,7 +100,6 @@ local function getPoneglyphCurrency()
     return currency
 end
 
--- Check if player has Fire Dragon Key in backpack or equipped
 local function hasFireDragonKey()
     local hasKey = false
     pcall(function()
@@ -154,11 +117,6 @@ local function hasFireDragonKey()
     return hasKey
 end
 
--- ============================================================================
--- SECTION 8: UTILITY FUNCTIONS - GUI MANAGEMENT
--- ============================================================================
-
--- Close Dragon Summoner GUI by clicking Bye button
 local function closeDragonGUI()
     pcall(function()
         local gui = player:FindFirstChild("PlayerGui")
@@ -181,11 +139,6 @@ local function closeDragonGUI()
     end)
 end
 
--- ============================================================================
--- SECTION 9: ENTITY DETECTION FUNCTIONS
--- ============================================================================
-
--- Check if model has NpcMarker billboard
 local function hasNpcMarker(model)
     for _, child in pairs(model:GetDescendants()) do
         if child:IsA("BillboardGui") and child.Name == "NpcMarker" then
@@ -195,7 +148,6 @@ local function hasNpcMarker(model)
     return false
 end
 
--- Check if entity is a valid raid mob
 local function isRaidMob(model)
     if not model:IsA("Model") then return false end
     if not model:FindFirstChild("Humanoid") then return false end
@@ -209,7 +161,6 @@ local function isRaidMob(model)
     return true
 end
 
--- Check if entity is the Fire Dragon boss
 local function isFireDragon(model)
     if not model:IsA("Model") then return false end
     if not model:FindFirstChild("Humanoid") then return false end
@@ -222,7 +173,6 @@ local function isFireDragon(model)
     return true
 end
 
--- Find Fire Dragon boss in workspace
 local function findFireDragon()
     if workspace:FindFirstChild("Entities") then
         for _, model in pairs(workspace.Entities:GetChildren()) do
@@ -234,7 +184,6 @@ local function findFireDragon()
     return nil
 end
 
--- Find nearest raid mob to player
 local function findNearestRaidMob()
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
         return nil
@@ -261,11 +210,6 @@ local function findNearestRaidMob()
     return nearestMob
 end
 
--- ============================================================================
--- SECTION 10: ABILITY & COMBAT FUNCTIONS
--- ============================================================================
-
--- Get suitable target part for abilities
 local function getTargetPart()
     if workspace:FindFirstChild("Raid Map") then
         for _, child in pairs(workspace["Raid Map"]:GetChildren()) do
@@ -288,10 +232,9 @@ local function getTargetPart()
     return workspace
 end
 
--- Get skill arguments for ability usage
-local function getSkillArgs(skill)
+local function getSkillArgs(styleType, skill)
     return {
-        "Sword Style",
+        styleType,
         skill,
         player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.CFrame or CFrame.new(0, 0, 0),
         getTargetPart(),
@@ -299,25 +242,18 @@ local function getSkillArgs(skill)
     }
 end
 
--- Teleport player to target position
 local function teleportToPosition(targetPosition)
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
     end
 end
 
--- Perform M1 attack
 local function performM1()
     pcall(function()
-        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("MouseButton1")))
+        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "MouseButton1")))
     end)
 end
 
--- ============================================================================
--- SECTION 11: SHOP AUTOMATION FUNCTIONS
--- ============================================================================
-
--- Smart buy gacha based on Present currency
 local function smartBuyGacha()
     pcall(function()
         local presents = getPresentCurrency()
@@ -352,7 +288,6 @@ local function smartBuyGacha()
     end)
 end
 
--- Smart increase gem cap based on Poneglyph currency
 local function smartIncreaseGemCap()
     pcall(function()
         local poneglyphs = getPoneglyphCurrency()
@@ -389,27 +324,19 @@ local function smartIncreaseGemCap()
     end)
 end
 
--- ============================================================================
--- SECTION 12: FIRE DRAGON AUTOMATION FUNCTIONS
--- ============================================================================
-
--- Summon Fire Dragon boss
 local function summonDragon()
     pcall(function()
         local currentTime = tick()
         
-        -- Check cooldown to prevent spam (8 seconds)
         if currentTime - lastDragonSummonTime < dragonSummonDelay then
             return
         end
         
-        -- Check if dragon is already spawned
         local existingDragon = findFireDragon()
         if existingDragon then
             return
         end
         
-        -- Check if player has Fire Dragon Key
         if not hasFireDragonKey() then
             autoDragonSummonEnabled = false
             if dragonSummonConnection then
@@ -429,14 +356,11 @@ local function summonDragon()
             return
         end
         
-        -- Update timestamp BEFORE summoning to prevent multiple summons
         lastDragonSummonTime = currentTime
         
-        -- Open Dragon Summoner GUI
         ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("clonegui"):FireServer("Dragon Summoner")
         wait(0.3)
         
-        -- Confirm summon and close GUI
         local gui = player:WaitForChild("PlayerGui")
         local dragonSummoner = gui:FindFirstChild("Dragon Summoner")
         if dragonSummoner then
@@ -445,35 +369,31 @@ local function summonDragon()
                 eventRemote:FireServer()
                 wait(0.1)
                 closeDragonGUI()
-                wait(2) -- Give dragon time to spawn
+                wait(2)
             end
         end
     end)
 end
 
--- ============================================================================
--- SECTION 13: ESCANOR SKILLS TAB
--- ============================================================================
-
-local EscanorSection = EscanorTab:CreateSection("Escanor Auto Skills")
+local AutoSkillsSection = AutoSkillsTab:CreateSection("Sword Style Skills")
 
 Rayfield:Notify({
-    Title = "Auto Skills Loaded",
+    Title = "Fate Hub Loaded",
     Content = "Script initialized successfully! Anti-AFK is active.",
     Duration = 5,
     Image = 4483362458,
     Actions = {}
 })
 
-local QToggle = EscanorTab:CreateToggle({
-    Name = "Auto Q Skill",
+local QToggle = AutoSkillsTab:CreateToggle({
+    Name = "Auto Q Skill (Sword)",
     CurrentValue = false,
-    Flag = "EscanorQ",
+    Flag = "SwordQ",
     Callback = function(value)
         autoQEnabled = value
         if value then
             Rayfield:Notify({
-                Title = "Escanor Q",
+                Title = "Sword Q",
                 Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
@@ -486,7 +406,7 @@ local QToggle = EscanorTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastQAttackTime >= attackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "Q")))
                         end)
                         lastQAttackTime = currentTime
                     end
@@ -494,7 +414,7 @@ local QToggle = EscanorTab:CreateToggle({
             end)
         else
             Rayfield:Notify({
-                Title = "Escanor Q",
+                Title = "Sword Q",
                 Content = "Disabled",
                 Duration = 3,
                 Image = 4483362458,
@@ -505,15 +425,15 @@ local QToggle = EscanorTab:CreateToggle({
     end
 })
 
-local EToggle = EscanorTab:CreateToggle({
-    Name = "Auto E Skill",
+local EToggle = AutoSkillsTab:CreateToggle({
+    Name = "Auto E Skill (Sword)",
     CurrentValue = false,
-    Flag = "EscanorE",
+    Flag = "SwordE",
     Callback = function(value)
         autoEEnabled = value
         if value then
             Rayfield:Notify({
-                Title = "Escanor E",
+                Title = "Sword E",
                 Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
@@ -526,7 +446,7 @@ local EToggle = EscanorTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastEAttackTime >= attackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("E")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "E")))
                         end)
                         lastEAttackTime = currentTime
                     end
@@ -534,7 +454,7 @@ local EToggle = EscanorTab:CreateToggle({
             end)
         else
             Rayfield:Notify({
-                Title = "Escanor E",
+                Title = "Sword E",
                 Content = "Disabled",
                 Duration = 3,
                 Image = 4483362458,
@@ -545,11 +465,131 @@ local EToggle = EscanorTab:CreateToggle({
     end
 })
 
-EscanorTab:CreateParagraph({Title = "ℹ️ Info", Content = "Automatically targets raid mobs with NpcMarker. Does not teleport to mobs. Anti-AFK is always active."})
+AutoSkillsTab:CreateParagraph({Title = "ℹ️ Sword Info", Content = "Automatically targets raid mobs with NpcMarker. Does not teleport to mobs."})
 
--- ============================================================================
--- SECTION 14: AUTO M1 TAB
--- ============================================================================
+local FruitSkillsSection = AutoSkillsTab:CreateSection("Fruit Style Skills")
+
+local FToggle = AutoSkillsTab:CreateToggle({
+    Name = "Auto F Skill (Fruit)",
+    CurrentValue = false,
+    Flag = "FruitF",
+    Callback = function(value)
+        autoFEnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Fruit F",
+                Content = "Enabled - Attacking raid mobs!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            fConnection = RunService.Heartbeat:Connect(function()
+                if not autoFEnabled then return end
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastFAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "F")))
+                        end)
+                        lastFAttackTime = currentTime
+                    end
+                end
+            end)
+        else
+            Rayfield:Notify({
+                Title = "Fruit F",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            if fConnection then fConnection:Disconnect() fConnection = nil end
+        end
+    end
+})
+
+local GToggle = AutoSkillsTab:CreateToggle({
+    Name = "Auto G Skill (Fruit)",
+    CurrentValue = false,
+    Flag = "FruitG",
+    Callback = function(value)
+        autoGEnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Fruit G",
+                Content = "Enabled - Attacking raid mobs!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            gConnection = RunService.Heartbeat:Connect(function()
+                if not autoGEnabled then return end
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastGAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "G")))
+                        end)
+                        lastGAttackTime = currentTime
+                    end
+                end
+            end)
+        else
+            Rayfield:Notify({
+                Title = "Fruit G",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            if gConnection then gConnection:Disconnect() gConnection = nil end
+        end
+    end
+})
+
+local RToggle = AutoSkillsTab:CreateToggle({
+    Name = "Auto R Skill (Fruit)",
+    CurrentValue = false,
+    Flag = "FruitR",
+    Callback = function(value)
+        autoREnabled = value
+        if value then
+            Rayfield:Notify({
+                Title = "Fruit R",
+                Content = "Enabled - Attacking raid mobs!",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            rConnection = RunService.Heartbeat:Connect(function()
+                if not autoREnabled then return end
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastRAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "R")))
+                        end)
+                        lastRAttackTime = currentTime
+                    end
+                end
+            end)
+        else
+            Rayfield:Notify({
+                Title = "Fruit R",
+                Content = "Disabled",
+                Duration = 3,
+                Image = 4483362458,
+                Actions = {}
+            })
+            if rConnection then rConnection:Disconnect() rConnection = nil end
+        end
+    end
+})
+
+AutoSkillsTab:CreateParagraph({Title = "ℹ️ Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses fruit abilities. Anti-AFK is always active."})
 
 local M1Section = M1Tab:CreateSection("Sword Style M1 Automation")
 
@@ -586,10 +626,6 @@ local M1Toggle = M1Tab:CreateToggle({
 
 M1Tab:CreateParagraph({Title = "ℹ️ Info", Content = "Continuously spams Sword Style M1 attacks. Works at all times when enabled."})
 
--- ============================================================================
--- SECTION 15: TP FARM TAB
--- ============================================================================
-
 local TPFarmSection = TPFarmTab:CreateSection("Teleport Farm Configuration")
 
 local TPQToggle = TPFarmTab:CreateToggle({
@@ -614,7 +650,7 @@ local TPQToggle = TPFarmTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastTPQAttackTime >= attackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "Q")))
                         end)
                         lastTPQAttackTime = currentTime
                     end
@@ -634,10 +670,6 @@ local TPQToggle = TPFarmTab:CreateToggle({
 })
 
 TPFarmTab:CreateParagraph({Title = "ℹ️ Info", Content = "Teleports to nearest raid mob and uses Q skill automatically. Efficient for farming."})
-
--- ============================================================================
--- SECTION 16: SHOPS TAB
--- ============================================================================
 
 local ShopsSection = ShopsTab:CreateSection("Smart Shop Automation")
 
@@ -708,10 +740,6 @@ GemCapToggle = ShopsTab:CreateToggle({
 ShopsTab:CreateParagraph({Title = "ℹ️ Gacha Info", Content = "Auto-detects Present currency and buys the best option (100/500/1000). Stops when currency runs out."})
 ShopsTab:CreateParagraph({Title = "ℹ️ Gem Cap Info", Content = "Auto-detects Poneglyphs and increases gem cap (1/5/10). Stops at 1 poneglyph to prevent bugs."})
 
--- ============================================================================
--- SECTION 17: FIRE DRAGON TAB
--- ============================================================================
-
 local DragonSection = DragonTab:CreateSection("Fire Dragon Automation")
 
 DragonToggle = DragonTab:CreateToggle({
@@ -766,7 +794,7 @@ local DragonQToggle = DragonTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastDragonQTime >= attackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Q")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "Q")))
                         end)
                         lastDragonQTime = currentTime
                     end
@@ -806,7 +834,7 @@ local DragonEToggle = DragonTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastDragonETime >= attackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("E")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "E")))
                         end)
                         lastDragonETime = currentTime
                     end
@@ -825,14 +853,9 @@ local DragonEToggle = DragonTab:CreateToggle({
     end
 })
 
-DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire Dragon if not already spawned. Uses Fire Dragon Keys from your backpack. 8 second cooldown between summons to prevent key waste. Target: Awakened Beast King (5B HP)"})
+DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire Dragon if not already spawned. Uses Fire Dragon Keys from your backpack. 15 second cooldown between summons to prevent key waste and handle lag. Target: Awakened Beast King (5B HP)"})
 
--- ============================================================================
--- SECTION 18: SCRIPT LOADED NOTIFICATION
--- ============================================================================
-
-print("✅ Auto Skills Script Loaded Successfully!")
-print("📱 UI: Rayfield (Modern & Smooth)")
-print("🔧 Features: Escanor Skills | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
-print("🐉 Dragon Summon Cooldown: 8 seconds")
-print("🌐 GitHub: EvenOnFN/Personal-Script")
+print("✅ Fate Hub Loaded Successfully!")
+print("📱 UI: Rayfield")
+print("👤 Made by: Fate")
+print("🔧 Features: Auto Skills (Sword + Fruit) | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
