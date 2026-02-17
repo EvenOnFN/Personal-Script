@@ -56,6 +56,7 @@ local lastFAttackTime = 0
 local lastGAttackTime = 0
 local lastRAttackTime = 0
 local attackDelay = 0.1
+local fruitAttackDelay = 1
 
 local autoTPQEnabled = false
 local tpqConnection = nil
@@ -488,7 +489,7 @@ local FToggle = AutoSkillsTab:CreateToggle({
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
                     local currentTime = tick()
-                    if currentTime - lastFAttackTime >= attackDelay then
+                    if currentTime - lastFAttackTime >= fruitAttackDelay then
                         pcall(function()
                             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "F")))
                         end)
@@ -528,7 +529,7 @@ local GToggle = AutoSkillsTab:CreateToggle({
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
                     local currentTime = tick()
-                    if currentTime - lastGAttackTime >= attackDelay then
+                    if currentTime - lastGAttackTime >= fruitAttackDelay then
                         pcall(function()
                             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "G")))
                         end)
@@ -568,7 +569,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
                     local currentTime = tick()
-                    if currentTime - lastRAttackTime >= attackDelay then
+                    if currentTime - lastRAttackTime >= fruitAttackDelay then
                         pcall(function()
                             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "R")))
                         end)
@@ -589,7 +590,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
     end
 })
 
-AutoSkillsTab:CreateParagraph({Title = "ℹ️ Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses fruit abilities. Anti-AFK is always active."})
+AutoSkillsTab:CreateParagraph({Title = "ℹ️ Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses fruit abilities with 1 second delay. Anti-AFK is always active."})
 
 local M1Section = M1Tab:CreateSection("Sword Style M1 Automation")
 
