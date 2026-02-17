@@ -468,17 +468,17 @@ local EToggle = AutoSkillsTab:CreateToggle({
 
 AutoSkillsTab:CreateParagraph({Title = "ℹ️ Sword Info", Content = "Automatically targets raid mobs with NpcMarker. Does not teleport to mobs."})
 
-local FruitSkillsSection = AutoSkillsTab:CreateSection("Fruit Style Skills")
+local FruitSkillsSection = AutoSkillsTab:CreateSection("Devil Fruit Skills")
 
 local FToggle = AutoSkillsTab:CreateToggle({
-    Name = "Auto F Skill (Fruit)",
+    Name = "Auto F Skill (Devil Fruit)",
     CurrentValue = false,
     Flag = "FruitF",
     Callback = function(value)
         autoFEnabled = value
         if value then
             Rayfield:Notify({
-                Title = "Fruit F",
+                Title = "Devil Fruit F",
                 Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
@@ -491,7 +491,7 @@ local FToggle = AutoSkillsTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastFAttackTime >= fruitAttackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "F")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "F")))
                         end)
                         lastFAttackTime = currentTime
                     end
@@ -499,7 +499,7 @@ local FToggle = AutoSkillsTab:CreateToggle({
             end)
         else
             Rayfield:Notify({
-                Title = "Fruit F",
+                Title = "Devil Fruit F",
                 Content = "Disabled",
                 Duration = 3,
                 Image = 4483362458,
@@ -511,14 +511,14 @@ local FToggle = AutoSkillsTab:CreateToggle({
 })
 
 local GToggle = AutoSkillsTab:CreateToggle({
-    Name = "Auto G Skill (Fruit)",
+    Name = "Auto G Skill (Devil Fruit)",
     CurrentValue = false,
     Flag = "FruitG",
     Callback = function(value)
         autoGEnabled = value
         if value then
             Rayfield:Notify({
-                Title = "Fruit G",
+                Title = "Devil Fruit G",
                 Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
@@ -531,7 +531,7 @@ local GToggle = AutoSkillsTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastGAttackTime >= fruitAttackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "G")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "G")))
                         end)
                         lastGAttackTime = currentTime
                     end
@@ -539,7 +539,7 @@ local GToggle = AutoSkillsTab:CreateToggle({
             end)
         else
             Rayfield:Notify({
-                Title = "Fruit G",
+                Title = "Devil Fruit G",
                 Content = "Disabled",
                 Duration = 3,
                 Image = 4483362458,
@@ -551,14 +551,14 @@ local GToggle = AutoSkillsTab:CreateToggle({
 })
 
 local RToggle = AutoSkillsTab:CreateToggle({
-    Name = "Auto R Skill (Fruit)",
+    Name = "Auto R Skill (Devil Fruit)",
     CurrentValue = false,
     Flag = "FruitR",
     Callback = function(value)
         autoREnabled = value
         if value then
             Rayfield:Notify({
-                Title = "Fruit R",
+                Title = "Devil Fruit R",
                 Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
@@ -571,7 +571,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
                     local currentTime = tick()
                     if currentTime - lastRAttackTime >= fruitAttackDelay then
                         pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Fruit Style", "R")))
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "R")))
                         end)
                         lastRAttackTime = currentTime
                     end
@@ -579,7 +579,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
             end)
         else
             Rayfield:Notify({
-                Title = "Fruit R",
+                Title = "Devil Fruit R",
                 Content = "Disabled",
                 Duration = 3,
                 Image = 4483362458,
@@ -590,7 +590,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
     end
 })
 
-AutoSkillsTab:CreateParagraph({Title = "ℹ️ Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses fruit abilities with 1 second delay. Anti-AFK is always active."})
+AutoSkillsTab:CreateParagraph({Title = "ℹ️ Devil Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses devil fruit abilities with 1 second delay. Anti-AFK is always active."})
 
 local M1Section = M1Tab:CreateSection("Sword Style M1 Automation")
 
@@ -859,4 +859,4 @@ DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire D
 print("✅ Fate Hub Loaded Successfully!")
 print("📱 UI: Rayfield")
 print("👤 Made by: Fate")
-print("🔧 Features: Auto Skills (Sword + Fruit) | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
+print("🔧 Features: Auto Skills (Sword + Devil Fruit) | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
