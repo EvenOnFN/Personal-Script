@@ -39,7 +39,7 @@ local Window = Rayfield:CreateWindow({
 
 local AutoSkillsTab = Window:CreateTab("⚔️ Auto Skills", 4483362458)
 local M1Tab = Window:CreateTab("👊 Auto M1", 4483362458)
-local TPFarmTab = Window:CreateTab("🌀 TP Farm", 4483362458)
+local RaidFarmTab = Window:CreateTab("🌀 Raid Farm", 4483362458)
 local ShopsTab = Window:CreateTab("🛒 Shops", 4483362458)
 local DragonTab = Window:CreateTab("🐉 Fire Dragon", 4483362458)
 
@@ -625,9 +625,9 @@ local M1Toggle = M1Tab:CreateToggle({
 
 M1Tab:CreateParagraph({Title = "ℹ️ Info", Content = "Continuously spams Sword Style M1 attacks. Works at all times when enabled."})
 
-local TPFarmSection = TPFarmTab:CreateSection("Auto Teleport to Mob")
+local RaidFarmSection = RaidFarmTab:CreateSection("Auto Teleport to Mob")
 
-local TPToggle = TPFarmTab:CreateToggle({
+local TPToggle = RaidFarmTab:CreateToggle({
     Name = "Auto TP to Raid Mob",
     CurrentValue = false,
     Flag = "AutoTP",
@@ -661,7 +661,7 @@ local TPToggle = TPFarmTab:CreateToggle({
     end
 })
 
-TPFarmTab:CreateParagraph({Title = "ℹ️ Info", Content = "Teleports you to nearest raid mob. Enable this with any auto skill for efficient farming!"})
+RaidFarmTab:CreateParagraph({Title = "ℹ️ Info", Content = "Teleports you to nearest raid mob. Enable this with any auto skill for efficient farming!"})
 
 local ShopsSection = ShopsTab:CreateSection("Smart Shop Automation")
 
@@ -850,4 +850,4 @@ DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire D
 print("✅ Fate Hub Loaded Successfully!")
 print("📱 UI: Rayfield")
 print("👤 Made by: Fate")
-print("🔧 Features: Auto Skills (Sword + Devil Fruit) | Auto TP | Auto M1 | Smart Shops | Fire Dragon")
+print("🔧 Features: Auto Skills (Sword + Devil Fruit) | Raid Farm | Auto M1 | Smart Shops | Fire Dragon")
