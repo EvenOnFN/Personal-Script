@@ -479,22 +479,19 @@ local FToggle = AutoSkillsTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Devil Fruit F",
-                Content = "Enabled - Attacking raid mobs!",
+                Content = "Enabled - Spamming every 1 second!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
             fConnection = RunService.Heartbeat:Connect(function()
                 if not autoFEnabled then return end
-                local mob = findNearestRaidMob()
-                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                    local currentTime = tick()
-                    if currentTime - lastFAttackTime >= fruitAttackDelay then
-                        pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "F")))
-                        end)
-                        lastFAttackTime = currentTime
-                    end
+                local currentTime = tick()
+                if currentTime - lastFAttackTime >= fruitAttackDelay then
+                    pcall(function()
+                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "F")))
+                    end)
+                    lastFAttackTime = currentTime
                 end
             end)
         else
@@ -519,22 +516,19 @@ local GToggle = AutoSkillsTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Devil Fruit G",
-                Content = "Enabled - Attacking raid mobs!",
+                Content = "Enabled - Spamming every 1 second!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
             gConnection = RunService.Heartbeat:Connect(function()
                 if not autoGEnabled then return end
-                local mob = findNearestRaidMob()
-                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                    local currentTime = tick()
-                    if currentTime - lastGAttackTime >= fruitAttackDelay then
-                        pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "G")))
-                        end)
-                        lastGAttackTime = currentTime
-                    end
+                local currentTime = tick()
+                if currentTime - lastGAttackTime >= fruitAttackDelay then
+                    pcall(function()
+                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "G")))
+                    end)
+                    lastGAttackTime = currentTime
                 end
             end)
         else
@@ -559,22 +553,19 @@ local RToggle = AutoSkillsTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Devil Fruit R",
-                Content = "Enabled - Attacking raid mobs!",
+                Content = "Enabled - Spamming every 1 second!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
             rConnection = RunService.Heartbeat:Connect(function()
                 if not autoREnabled then return end
-                local mob = findNearestRaidMob()
-                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                    local currentTime = tick()
-                    if currentTime - lastRAttackTime >= fruitAttackDelay then
-                        pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "R")))
-                        end)
-                        lastRAttackTime = currentTime
-                    end
+                local currentTime = tick()
+                if currentTime - lastRAttackTime >= fruitAttackDelay then
+                    pcall(function()
+                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "R")))
+                    end)
+                    lastRAttackTime = currentTime
                 end
             end)
         else
@@ -590,7 +581,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
     end
 })
 
-AutoSkillsTab:CreateParagraph({Title = "ℹ️ Devil Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses devil fruit abilities with 1 second delay. Anti-AFK is always active."})
+AutoSkillsTab:CreateParagraph({Title = "ℹ️ Devil Fruit Info", Content = "Spams devil fruit abilities every 1 second continuously. Good for quests and general use. Anti-AFK is always active."})
 
 local M1Section = M1Tab:CreateSection("Sword Style M1 Automation")
 
