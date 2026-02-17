@@ -56,11 +56,9 @@ local lastFAttackTime = 0
 local lastGAttackTime = 0
 local lastRAttackTime = 0
 local attackDelay = 0.1
-local fruitAttackDelay = 1
 
-local autoTPQEnabled = false
-local tpqConnection = nil
-local lastTPQAttackTime = 0
+local autoTPEnabled = false
+local tpConnection = nil
 local tpHeight = 5
 
 local autoSmartGachaEnabled = false
@@ -479,19 +477,22 @@ local FToggle = AutoSkillsTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Devil Fruit F",
-                Content = "Enabled - Spamming every 1 second!",
+                Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
             fConnection = RunService.Heartbeat:Connect(function()
                 if not autoFEnabled then return end
-                local currentTime = tick()
-                if currentTime - lastFAttackTime >= fruitAttackDelay then
-                    pcall(function()
-                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "F")))
-                    end)
-                    lastFAttackTime = currentTime
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastFAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "F")))
+                        end)
+                        lastFAttackTime = currentTime
+                    end
                 end
             end)
         else
@@ -516,19 +517,22 @@ local GToggle = AutoSkillsTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Devil Fruit G",
-                Content = "Enabled - Spamming every 1 second!",
+                Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
             gConnection = RunService.Heartbeat:Connect(function()
                 if not autoGEnabled then return end
-                local currentTime = tick()
-                if currentTime - lastGAttackTime >= fruitAttackDelay then
-                    pcall(function()
-                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "G")))
-                    end)
-                    lastGAttackTime = currentTime
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastGAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "G")))
+                        end)
+                        lastGAttackTime = currentTime
+                    end
                 end
             end)
         else
@@ -553,19 +557,22 @@ local RToggle = AutoSkillsTab:CreateToggle({
         if value then
             Rayfield:Notify({
                 Title = "Devil Fruit R",
-                Content = "Enabled - Spamming every 1 second!",
+                Content = "Enabled - Attacking raid mobs!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
             rConnection = RunService.Heartbeat:Connect(function()
                 if not autoREnabled then return end
-                local currentTime = tick()
-                if currentTime - lastRAttackTime >= fruitAttackDelay then
-                    pcall(function()
-                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "R")))
-                    end)
-                    lastRAttackTime = currentTime
+                local mob = findNearestRaidMob()
+                if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    local currentTime = tick()
+                    if currentTime - lastRAttackTime >= attackDelay then
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Devil Fruit", "R")))
+                        end)
+                        lastRAttackTime = currentTime
+                    end
                 end
             end)
         else
@@ -581,7 +588,7 @@ local RToggle = AutoSkillsTab:CreateToggle({
     end
 })
 
-AutoSkillsTab:CreateParagraph({Title = "ℹ️ Devil Fruit Info", Content = "Spams devil fruit abilities every 1 second continuously. Good for quests and general use. Anti-AFK is always active."})
+AutoSkillsTab:CreateParagraph({Title = "ℹ️ Devil Fruit Info", Content = "Automatically targets raid mobs with NpcMarker. Uses devil fruit abilities. Anti-AFK is always active."})
 
 local M1Section = M1Tab:CreateSection("Sword Style M1 Automation")
 
@@ -618,50 +625,43 @@ local M1Toggle = M1Tab:CreateToggle({
 
 M1Tab:CreateParagraph({Title = "ℹ️ Info", Content = "Continuously spams Sword Style M1 attacks. Works at all times when enabled."})
 
-local TPFarmSection = TPFarmTab:CreateSection("Teleport Farm Configuration")
+local TPFarmSection = TPFarmTab:CreateSection("Auto Teleport to Mob")
 
-local TPQToggle = TPFarmTab:CreateToggle({
-    Name = "Auto TP + Q Farm",
+local TPToggle = TPFarmTab:CreateToggle({
+    Name = "Auto TP to Raid Mob",
     CurrentValue = false,
-    Flag = "AutoTPQ",
+    Flag = "AutoTP",
     Callback = function(value)
-        autoTPQEnabled = value
+        autoTPEnabled = value
         if value then
             Rayfield:Notify({
-                Title = "TP + Q Farm",
-                Content = "Enabled - Teleporting and attacking!",
+                Title = "Auto TP",
+                Content = "Enabled - Teleporting to mobs!",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
-            tpqConnection = RunService.Heartbeat:Connect(function()
-                if not autoTPQEnabled then return end
+            tpConnection = RunService.Heartbeat:Connect(function()
+                if not autoTPEnabled then return end
                 local mob = findNearestRaidMob()
                 if mob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
                     teleportToPosition(mob.HumanoidRootPart.Position + Vector3.new(0, tpHeight, 0))
-                    local currentTime = tick()
-                    if currentTime - lastTPQAttackTime >= attackDelay then
-                        pcall(function()
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("requestAbility"):FireServer(unpack(getSkillArgs("Sword Style", "Q")))
-                        end)
-                        lastTPQAttackTime = currentTime
-                    end
                 end
             end)
         else
             Rayfield:Notify({
-                Title = "TP + Q Farm",
+                Title = "Auto TP",
                 Content = "Disabled",
                 Duration = 3,
                 Image = 4483362458,
                 Actions = {}
             })
-            if tpqConnection then tpqConnection:Disconnect() tpqConnection = nil end
+            if tpConnection then tpConnection:Disconnect() tpConnection = nil end
         end
     end
 })
 
-TPFarmTab:CreateParagraph({Title = "ℹ️ Info", Content = "Teleports to nearest raid mob and uses Q skill automatically. Efficient for farming."})
+TPFarmTab:CreateParagraph({Title = "ℹ️ Info", Content = "Teleports you to nearest raid mob. Enable this with any auto skill for efficient farming!"})
 
 local ShopsSection = ShopsTab:CreateSection("Smart Shop Automation")
 
@@ -850,4 +850,4 @@ DragonTab:CreateParagraph({Title = "ℹ️ Info", Content = "Only summons Fire D
 print("✅ Fate Hub Loaded Successfully!")
 print("📱 UI: Rayfield")
 print("👤 Made by: Fate")
-print("🔧 Features: Auto Skills (Sword + Devil Fruit) | TP Farm | Auto M1 | Smart Shops | Fire Dragon")
+print("🔧 Features: Auto Skills (Sword + Devil Fruit) | Auto TP | Auto M1 | Smart Shops | Fire Dragon")
